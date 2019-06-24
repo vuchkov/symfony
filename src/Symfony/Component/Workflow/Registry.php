@@ -12,7 +12,6 @@
 namespace Symfony\Component\Workflow;
 
 use Symfony\Component\Workflow\Exception\InvalidArgumentException;
-use Symfony\Component\Workflow\SupportStrategy\SupportStrategyInterface;
 use Symfony\Component\Workflow\SupportStrategy\WorkflowSupportStrategyInterface;
 
 /**
@@ -21,23 +20,11 @@ use Symfony\Component\Workflow\SupportStrategy\WorkflowSupportStrategyInterface;
  */
 class Registry
 {
-    private $workflows = array();
-
-    /**
-     * @param Workflow                 $workflow
-     * @param SupportStrategyInterface $supportStrategy
-     *
-     * @deprecated since Symfony 4.1, use addWorkflow() instead
-     */
-    public function add(Workflow $workflow, $supportStrategy)
-    {
-        @trigger_error(sprintf('The "%s()" method is deprecated since Symfony 4.1. Use addWorkflow() instead.', __METHOD__), E_USER_DEPRECATED);
-        $this->workflows[] = array($workflow, $supportStrategy);
-    }
+    private $workflows = [];
 
     public function addWorkflow(WorkflowInterface $workflow, WorkflowSupportStrategyInterface $supportStrategy)
     {
-        $this->workflows[] = array($workflow, $supportStrategy);
+        $this->workflows[] = [$workflow, $supportStrategy];
     }
 
     /**
@@ -73,7 +60,7 @@ class Registry
      */
     public function all($subject): array
     {
-        $matched = array();
+        $matched = [];
         foreach ($this->workflows as list($workflow, $supportStrategy)) {
             if ($supportStrategy->supports($workflow, $subject)) {
                 $matched[] = $workflow;

@@ -27,11 +27,18 @@ use Symfony\Component\DependencyInjection\ServiceLocator;
  */
 final class ServiceLocatorTagPass extends AbstractRecursivePass
 {
+    use PriorityTaggedServiceTrait;
+
     protected function processValue($value, $isRoot = false)
     {
         if ($value instanceof ServiceLocatorArgument) {
+            if ($value->getTaggedIteratorArgument()) {
+                $value->setValues($this->findAndSortTaggedServices($value->getTaggedIteratorArgument(), $this->container));
+            }
+
             return self::register($this->container, $value->getValues());
         }
+
         if (!$value instanceof Definition || !$value->hasTag('container.service_locator')) {
             return parent::processValue($value, $isRoot);
         }
@@ -83,10 +90,8 @@ final class ServiceLocatorTagPass extends AbstractRecursivePass
      * @param ContainerBuilder $container
      * @param Reference[]      $refMap
      * @param string|null      $callerId
-     *
-     * @return Reference
      */
-    public static function register(ContainerBuilder $container, array $refMap, $callerId = null)
+    public static function register(ContainerBuilder $container, array $refMap, $callerId = null): Reference
     {
         foreach ($refMap as $id => $ref) {
             if (!$ref instanceof Reference) {
@@ -101,7 +106,11 @@ final class ServiceLocatorTagPass extends AbstractRecursivePass
             ->setPublic(false)
             ->addTag('container.service_locator');
 
-        if (!$container->has($id = '.service_locator.'.ContainerBuilder::hash($locator))) {
+        if (null !== $callerId && $container->hasDefinition($callerId)) {
+            $locator->setBindings($container->getDefinition($callerId)->getBindings());
+        }
+
+        if (!$container->hasDefinition($id = '.service_locator.'.ContainerBuilder::hash($locator))) {
             $container->setDefinition($id, $locator);
         }
 
@@ -112,8 +121,8 @@ final class ServiceLocatorTagPass extends AbstractRecursivePass
             // to derivate customized instances from the prototype one.
             $container->register($id .= '.'.$callerId, ServiceLocator::class)
                 ->setPublic(false)
-                ->setFactory(array(new Reference($locatorId), 'withContext'))
-                ->addTag('container.service_locator_context', array('id' => $callerId))
+                ->setFactory([new Reference($locatorId), 'withContext'])
+                ->addTag('container.service_locator_context', ['id' => $callerId])
                 ->addArgument($callerId)
                 ->addArgument(new Reference('service_container'));
         }

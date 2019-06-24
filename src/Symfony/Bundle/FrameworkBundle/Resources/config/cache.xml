@@ -2,17 +2,13 @@
 
 <container xmlns="http://symfony.com/schema/dic/services"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://symfony.com/schema/dic/services http://symfony.com/schema/dic/services/services-1.0.xsd">
+    xsi:schemaLocation="http://symfony.com/schema/dic/services https://symfony.com/schema/dic/services/services-1.0.xsd">
 
     <services>
         <defaults public="false" />
 
         <service id="cache.app" parent="cache.adapter.filesystem" public="true">
             <tag name="cache.pool" clearer="cache.app_clearer" reset="reset" />
-        </service>
-
-        <service id="cache.app.simple" class="Symfony\Component\Cache\Simple\Psr6Cache">
-            <argument type="service" id="cache.app" />
         </service>
 
         <service id="cache.app.taggable" class="Symfony\Component\Cache\Adapter\TagAwareAdapter">
@@ -32,6 +28,14 @@
         </service>
 
         <service id="cache.annotations" parent="cache.system" public="false">
+            <tag name="cache.pool" />
+        </service>
+
+        <service id="cache.property_info" parent="cache.system" public="false">
+            <tag name="cache.pool" />
+        </service>
+
+        <service id="cache.messenger.restart_workers_signal" parent="cache.app" public="false">
             <tag name="cache.pool" />
         </service>
 
@@ -146,7 +150,6 @@
         <service id="cache.global_clearer" parent="cache.default_clearer" public="true" />
         <service id="cache.app_clearer" alias="cache.default_clearer" public="true" />
         <service id="Psr\Cache\CacheItemPoolInterface" alias="cache.app" />
-        <service id="Psr\SimpleCache\CacheInterface" alias="cache.app.simple" />
         <service id="Symfony\Component\Cache\Adapter\AdapterInterface" alias="cache.app" />
         <service id="Symfony\Contracts\Cache\CacheInterface" alias="cache.app" />
         <service id="Symfony\Contracts\Cache\TagAwareCacheInterface" alias="cache.app.taggable" />

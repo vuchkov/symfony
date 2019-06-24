@@ -11,22 +11,32 @@
 
 namespace Symfony\Component\Messenger\Middleware;
 
+use Psr\Log\LoggerAwareTrait;
+use Psr\Log\NullLogger;
 use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\Exception\NoHandlerForMessageException;
-use Symfony\Component\Messenger\Handler\Locator\HandlerLocatorInterface;
+use Symfony\Component\Messenger\Handler\HandlerDescriptor;
+use Symfony\Component\Messenger\Handler\HandlersLocatorInterface;
+use Symfony\Component\Messenger\Stamp\HandledStamp;
 
 /**
  * @author Samuel Roze <samuel.roze@gmail.com>
+ *
+ * @experimental in 4.3
  */
 class HandleMessageMiddleware implements MiddlewareInterface
 {
-    private $messageHandlerLocator;
+    use LoggerAwareTrait;
+
+    private $handlersLocator;
     private $allowNoHandlers;
 
-    public function __construct(HandlerLocatorInterface $messageHandlerLocator, bool $allowNoHandlers = false)
+    public function __construct(HandlersLocatorInterface $handlersLocator, bool $allowNoHandlers = false)
     {
-        $this->messageHandlerLocator = $messageHandlerLocator;
+        $this->handlersLocator = $handlersLocator;
         $this->allowNoHandlers = $allowNoHandlers;
+        $this->logger = new NullLogger();
     }
 
     /**
@@ -36,12 +46,52 @@ class HandleMessageMiddleware implements MiddlewareInterface
      */
     public function handle(Envelope $envelope, StackInterface $stack): Envelope
     {
-        if (null !== $handler = $this->messageHandlerLocator->getHandler($envelope)) {
-            $handler($envelope->getMessage());
-        } elseif (!$this->allowNoHandlers) {
-            throw new NoHandlerForMessageException(sprintf('No handler for message "%s".', \get_class($envelope->getMessage())));
+        $handler = null;
+        $message = $envelope->getMessage();
+
+        $context = [
+            'message' => $message,
+            'class' => \get_class($message),
+        ];
+
+        $exceptions = [];
+        foreach ($this->handlersLocator->getHandlers($envelope) as $handlerDescriptor) {
+            if ($this->messageHasAlreadyBeenHandled($envelope, $handlerDescriptor)) {
+                continue;
+            }
+
+            try {
+                $handler = $handlerDescriptor->getHandler();
+                $handledStamp = HandledStamp::fromDescriptor($handlerDescriptor, $handler($message));
+                $envelope = $envelope->with($handledStamp);
+                $this->logger->info('Message {class} handled by {handler}', $context + ['handler' => $handledStamp->getHandlerName()]);
+            } catch (\Throwable $e) {
+                $exceptions[] = $e;
+            }
+        }
+
+        if (null === $handler) {
+            if (!$this->allowNoHandlers) {
+                throw new NoHandlerForMessageException(sprintf('No handler for message "%s".', $context['class']));
+            }
+
+            $this->logger->info('No handler for message {class}', $context);
+        }
+
+        if (\count($exceptions)) {
+            throw new HandlerFailedException($envelope, $exceptions);
         }
 
         return $stack->next()->handle($envelope, $stack);
+    }
+
+    private function messageHasAlreadyBeenHandled(Envelope $envelope, HandlerDescriptor $handlerDescriptor): bool
+    {
+        $some = array_filter($envelope
+            ->all(HandledStamp::class), function (HandledStamp $stamp) use ($handlerDescriptor) {
+                return $stamp->getHandlerName() === $handlerDescriptor->getName();
+            });
+
+        return \count($some) > 0;
     }
 }

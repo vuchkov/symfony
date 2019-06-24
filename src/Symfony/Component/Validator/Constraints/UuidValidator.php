@@ -67,12 +67,12 @@ class UuidValidator extends ConstraintValidator
      */
     public function validate($value, Constraint $constraint)
     {
-        if (null === $value || '' === $value) {
-            return;
-        }
-
         if (!$constraint instanceof Uuid) {
             throw new UnexpectedTypeException($constraint, __NAMESPACE__.'\Uuid');
+        }
+
+        if (null === $value || '' === $value) {
+            return;
         }
 
         if (!is_scalar($value) && !(\is_object($value) && method_exists($value, '__toString'))) {
@@ -80,6 +80,10 @@ class UuidValidator extends ConstraintValidator
         }
 
         $value = (string) $value;
+
+        if (null !== $constraint->normalizer) {
+            $value = ($constraint->normalizer)($value);
+        }
 
         if ($constraint->strict) {
             $this->validateStrict($value, $constraint);

@@ -26,21 +26,10 @@ class ConfigDataCollector extends DataCollector implements LateDataCollectorInte
      * @var KernelInterface
      */
     private $kernel;
-    private $name;
-    private $version;
     private $hasVarDumper;
 
-    public function __construct(string $name = null, string $version = null)
+    public function __construct()
     {
-        if (1 <= \func_num_args()) {
-            @trigger_error(sprintf('The "$name" argument in method "%s()" is deprecated since Symfony 4.2.', __METHOD__), E_USER_DEPRECATED);
-        }
-        if (2 <= \func_num_args()) {
-            @trigger_error(sprintf('The "$version" argument in method "%s()" is deprecated since Symfony 4.2.', __METHOD__), E_USER_DEPRECATED);
-        }
-
-        $this->name = $name;
-        $this->version = $version;
         $this->hasVarDumper = class_exists(LinkStub::class);
     }
 
@@ -57,9 +46,7 @@ class ConfigDataCollector extends DataCollector implements LateDataCollectorInte
      */
     public function collect(Request $request, Response $response, \Exception $exception = null)
     {
-        $this->data = array(
-            'app_name' => $this->name,
-            'app_version' => $this->version,
+        $this->data = [
             'token' => $response->headers->get('X-Debug-Token'),
             'symfony_version' => Kernel::VERSION,
             'symfony_state' => 'unknown',
@@ -70,11 +57,11 @@ class ConfigDataCollector extends DataCollector implements LateDataCollectorInte
             'php_intl_locale' => class_exists('Locale', false) && \Locale::getDefault() ? \Locale::getDefault() : 'n/a',
             'php_timezone' => date_default_timezone_get(),
             'xdebug_enabled' => \extension_loaded('xdebug'),
-            'apcu_enabled' => \extension_loaded('apcu') && ini_get('apc.enabled'),
-            'zend_opcache_enabled' => \extension_loaded('Zend OPcache') && ini_get('opcache.enable'),
-            'bundles' => array(),
+            'apcu_enabled' => \extension_loaded('apcu') && filter_var(ini_get('apc.enabled'), FILTER_VALIDATE_BOOLEAN),
+            'zend_opcache_enabled' => \extension_loaded('Zend OPcache') && filter_var(ini_get('opcache.enable'), FILTER_VALIDATE_BOOLEAN),
+            'bundles' => [],
             'sapi_name' => \PHP_SAPI,
-        );
+        ];
 
         if (isset($this->kernel)) {
             foreach ($this->kernel->getBundles() as $name => $bundle) {
@@ -83,6 +70,7 @@ class ConfigDataCollector extends DataCollector implements LateDataCollectorInte
 
             $this->data['symfony_state'] = $this->determineSymfonyState();
             $this->data['symfony_minor_version'] = sprintf('%s.%s', Kernel::MAJOR_VERSION, Kernel::MINOR_VERSION);
+            $this->data['symfony_lts'] = 4 === Kernel::MINOR_VERSION;
             $eom = \DateTime::createFromFormat('m/Y', Kernel::END_OF_MAINTENANCE);
             $eol = \DateTime::createFromFormat('m/Y', Kernel::END_OF_LIFE);
             $this->data['symfony_eom'] = $eom->format('F Y');
@@ -100,32 +88,12 @@ class ConfigDataCollector extends DataCollector implements LateDataCollectorInte
      */
     public function reset()
     {
-        $this->data = array();
+        $this->data = [];
     }
 
     public function lateCollect()
     {
         $this->data = $this->cloneVar($this->data);
-    }
-
-    /**
-     * @deprecated since Symfony 4.2
-     */
-    public function getApplicationName()
-    {
-        @trigger_error(sprintf('The method "%s()" is deprecated since Symfony 4.2.', __METHOD__), E_USER_DEPRECATED);
-
-        return $this->data['app_name'];
-    }
-
-    /**
-     * @deprecated since Symfony 4.2
-     */
-    public function getApplicationVersion()
-    {
-        @trigger_error(sprintf('The method "%s()" is deprecated since Symfony 4.2.', __METHOD__), E_USER_DEPRECATED);
-
-        return $this->data['app_version'];
     }
 
     /**
@@ -167,6 +135,14 @@ class ConfigDataCollector extends DataCollector implements LateDataCollectorInte
     public function getSymfonyMinorVersion()
     {
         return $this->data['symfony_minor_version'];
+    }
+
+    /**
+     * Returns if the current Symfony version is a Long-Term Support one.
+     */
+    public function isSymfonyLts(): bool
+    {
+        return $this->data['symfony_lts'];
     }
 
     /**
@@ -233,20 +209,6 @@ class ConfigDataCollector extends DataCollector implements LateDataCollectorInte
     public function getPhpTimezone()
     {
         return $this->data['php_timezone'];
-    }
-
-    /**
-     * Gets the application name.
-     *
-     * @return string The application name
-     *
-     * @deprecated since Symfony 4.2
-     */
-    public function getAppName()
-    {
-        @trigger_error(sprintf('The "%s()" method is deprecated since Symfony 4.2.', __METHOD__), E_USER_DEPRECATED);
-
-        return 'n/a';
     }
 
     /**

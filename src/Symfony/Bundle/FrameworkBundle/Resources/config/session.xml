@@ -2,7 +2,7 @@
 
 <container xmlns="http://symfony.com/schema/dic/services"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://symfony.com/schema/dic/services http://symfony.com/schema/dic/services/services-1.0.xsd">
+    xsi:schemaLocation="http://symfony.com/schema/dic/services https://symfony.com/schema/dic/services/services-1.0.xsd">
 
     <parameters>
         <parameter key="session.metadata.storage_key">_sf2_meta</parameter>
@@ -62,10 +62,6 @@
                 <argument key="session" type="service" id="session" on-invalid="ignore" />
                 <argument key="initialized_session" type="service" id="session" on-invalid="ignore_uninitialized" />
             </argument>
-        </service>
-
-        <service id="session.save_listener" class="Symfony\Component\HttpKernel\EventListener\SaveSessionListener">
-            <deprecated>The "%service_id%" service is deprecated since Symfony 4.1. Use the "session_listener" service instead.</deprecated>
         </service>
 
         <!-- for BC -->

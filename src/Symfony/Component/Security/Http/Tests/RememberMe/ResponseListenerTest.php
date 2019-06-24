@@ -15,6 +15,7 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Security\Http\RememberMe\RememberMeServicesInterface;
@@ -26,9 +27,9 @@ class ResponseListenerTest extends TestCase
     {
         $cookie = new Cookie('rememberme', null, 0, '/', null, false, true, false, null);
 
-        $request = $this->getRequest(array(
+        $request = $this->getRequest([
             RememberMeServicesInterface::COOKIE_ATTR_NAME => $cookie,
-        ));
+        ]);
 
         $response = $this->getResponse();
         $response->headers->expects($this->once())->method('setCookie')->with($cookie);
@@ -41,9 +42,9 @@ class ResponseListenerTest extends TestCase
     {
         $cookie = new Cookie('rememberme', null, 0, '/', null, false, true, false, null);
 
-        $request = $this->getRequest(array(
+        $request = $this->getRequest([
             RememberMeServicesInterface::COOKIE_ATTR_NAME => $cookie,
-        ));
+        ]);
 
         $response = $this->getResponse();
         $response->headers->expects($this->never())->method('setCookie');
@@ -67,10 +68,10 @@ class ResponseListenerTest extends TestCase
     {
         $listener = new ResponseListener();
 
-        $this->assertSame(array(KernelEvents::RESPONSE => 'onKernelResponse'), ResponseListener::getSubscribedEvents());
+        $this->assertSame([KernelEvents::RESPONSE => 'onKernelResponse'], ResponseListener::getSubscribedEvents());
     }
 
-    private function getRequest(array $attributes = array())
+    private function getRequest(array $attributes = [])
     {
         $request = new Request();
 
@@ -91,13 +92,13 @@ class ResponseListenerTest extends TestCase
 
     private function getEvent($request, $response, $type = HttpKernelInterface::MASTER_REQUEST)
     {
-        $event = $this->getMockBuilder('Symfony\Component\HttpKernel\Event\FilterResponseEvent')
+        $event = $this->getMockBuilder(ResponseEvent::class)
             ->disableOriginalConstructor()
             ->getMock();
 
-        $event->expects($this->any())->method('getRequest')->will($this->returnValue($request));
-        $event->expects($this->any())->method('isMasterRequest')->will($this->returnValue(HttpKernelInterface::MASTER_REQUEST === $type));
-        $event->expects($this->any())->method('getResponse')->will($this->returnValue($response));
+        $event->expects($this->any())->method('getRequest')->willReturn($request);
+        $event->expects($this->any())->method('isMasterRequest')->willReturn(HttpKernelInterface::MASTER_REQUEST === $type);
+        $event->expects($this->any())->method('getResponse')->willReturn($response);
 
         return $event;
     }

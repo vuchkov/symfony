@@ -38,13 +38,14 @@ final class ConnectionOptions
     const ERROR_STRING = 0x32;
     const MATCHED_DN = 0x33;
     const DEBUG_LEVEL = 0x5001;
+    const TIMEOUT = 0x5002;
     const NETWORK_TIMEOUT = 0x5005;
     const X_SASL_MECH = 0x6100;
     const X_SASL_REALM = 0x6101;
     const X_SASL_AUTHCID = 0x6102;
     const X_SASL_AUTHZID = 0x6103;
 
-    public static function getOptionName($name)
+    public static function getOptionName($name): string
     {
         return sprintf('%s::%s', self::class, strtoupper($name));
     }
@@ -55,11 +56,9 @@ final class ConnectionOptions
      *
      * @param string $name
      *
-     * @return int
-     *
      * @throws LdapException
      */
-    public static function getOption($name)
+    public static function getOption($name): int
     {
         // Convert
         $constantName = self::getOptionName($name);
@@ -71,7 +70,7 @@ final class ConnectionOptions
         return \constant($constantName);
     }
 
-    public static function isOption($name)
+    public static function isOption($name): bool
     {
         return \defined(self::getOptionName($name));
     }

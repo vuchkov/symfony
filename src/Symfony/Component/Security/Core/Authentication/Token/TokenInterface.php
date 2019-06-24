@@ -11,8 +11,6 @@
 
 namespace Symfony\Component\Security\Core\Authentication\Token;
 
-use Symfony\Component\Security\Core\Role\Role;
-
 /**
  * TokenInterface is the interface for the user authentication information.
  *
@@ -33,9 +31,9 @@ interface TokenInterface extends \Serializable
     /**
      * Returns the user roles.
      *
-     * @return Role[] An array of Role instances
+     * @return string[] The associated roles
      */
-    public function getRoles();
+    public function getRoleNames(): array;
 
     /**
      * Returns the user credentials.
@@ -133,4 +131,14 @@ interface TokenInterface extends \Serializable
      * @param mixed  $value The attribute value
      */
     public function setAttribute($name, $value);
+
+    /**
+     * Returns all the necessary state of the object for serialization purposes.
+     */
+    public function __serialize(): array;
+
+    /**
+     * Restores the object state from an array given by __serialize().
+     */
+    public function __unserialize(array $data): void;
 }

@@ -58,51 +58,46 @@ class DebugProcessorTest extends TestCase
 
         $this->assertCount(2, $processor->getLogs($request));
         $this->assertSame(1, $processor->countErrors($request));
+
+        $this->assertCount(0, $processor->getLogs(new Request()));
+        $this->assertSame(0, $processor->countErrors(new Request()));
     }
 
-    /**
-     * @group legacy
-     * @expectedDeprecation The "Symfony\Bridge\Monolog\Processor\DebugProcessor::getLogs()" method will have a new "Request $request = null" argument in version 5.0, not defining it is deprecated since Symfony 4.2.
-     */
     public function testInheritedClassCallGetLogsWithoutArgument()
     {
         $debugProcessorChild = new ClassThatInheritDebugProcessor();
-        $debugProcessorChild->getLogs();
+        $this->assertNull($debugProcessorChild->getLogs());
     }
 
-    /**
-     * @group legacy
-     * @expectedDeprecation The "Symfony\Bridge\Monolog\Processor\DebugProcessor::countErrors()" method will have a new "Request $request = null" argument in version 5.0, not defining it is deprecated since Symfony 4.2.
-     */
     public function testInheritedClassCallCountErrorsWithoutArgument()
     {
         $debugProcessorChild = new ClassThatInheritDebugProcessor();
-        $debugProcessorChild->countErrors();
+        $this->assertEquals(0, $debugProcessorChild->countErrors());
     }
 
     private function getRecord($level = Logger::WARNING, $message = 'test')
     {
-        return array(
+        return [
             'message' => $message,
-            'context' => array(),
+            'context' => [],
             'level' => $level,
             'level_name' => Logger::getLevelName($level),
             'channel' => 'test',
             'datetime' => new \DateTime(),
-            'extra' => array(),
-        );
+            'extra' => [],
+        ];
     }
 }
 
 class ClassThatInheritDebugProcessor extends DebugProcessor
 {
-    public function getLogs()
+    public function getLogs(Request $request = null)
     {
-        parent::getLogs();
+        parent::getLogs($request);
     }
 
-    public function countErrors()
+    public function countErrors(Request $request = null)
     {
-        parent::countErrors();
+        parent::countErrors($request);
     }
 }

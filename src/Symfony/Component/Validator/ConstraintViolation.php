@@ -44,13 +44,18 @@ class ConstraintViolation implements ConstraintViolationInterface
      *                                         violation
      * @param int|null        $plural          The number for determining the plural
      *                                         form when translating the message
-     * @param mixed           $code            The error code of the violation
+     * @param string|null     $code            The error code of the violation
      * @param Constraint|null $constraint      The constraint whose validation
      *                                         caused the violation
      * @param mixed           $cause           The cause of the violation
      */
     public function __construct(?string $message, ?string $messageTemplate, array $parameters, $root, ?string $propertyPath, $invalidValue, int $plural = null, $code = null, Constraint $constraint = null, $cause = null)
     {
+        if (null === $message) {
+            @trigger_error(sprintf('Passing a null message when instantiating a "%s" is deprecated since Symfony 4.4.', __CLASS__), E_USER_DEPRECATED);
+            $message = '';
+        }
+
         $this->message = $message;
         $this->messageTemplate = $messageTemplate;
         $this->parameters = $parameters;
@@ -79,13 +84,13 @@ class ConstraintViolation implements ConstraintViolationInterface
         }
 
         $propertyPath = (string) $this->propertyPath;
-        $code = $this->code;
+        $code = (string) $this->code;
 
         if ('' !== $propertyPath && '[' !== $propertyPath[0] && '' !== $class) {
             $class .= '.';
         }
 
-        if (!empty($code)) {
+        if ('' !== $code) {
             $code = ' (code '.$code.')';
         }
 

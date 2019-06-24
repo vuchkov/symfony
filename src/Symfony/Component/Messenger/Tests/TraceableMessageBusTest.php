@@ -14,6 +14,7 @@ namespace Symfony\Component\Messenger\Tests;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\Messenger\Tests\Fixtures\AnEnvelopeStamp;
 use Symfony\Component\Messenger\Tests\Fixtures\DummyMessage;
 use Symfony\Component\Messenger\TraceableMessageBus;
@@ -24,22 +25,25 @@ class TraceableMessageBusTest extends TestCase
     {
         $message = new DummyMessage('Hello');
 
+        $stamp = new DelayStamp(5);
         $bus = $this->getMockBuilder(MessageBusInterface::class)->getMock();
-        $bus->expects($this->once())->method('dispatch')->with($message)->willReturn(new Envelope($message));
+        $bus->expects($this->once())->method('dispatch')->with($message, [$stamp])->willReturn(new Envelope($message));
 
         $traceableBus = new TraceableMessageBus($bus);
         $line = __LINE__ + 1;
-        $this->assertInstanceOf(Envelope::class, $traceableBus->dispatch($message));
+        $traceableBus->dispatch($message, [$stamp]);
         $this->assertCount(1, $tracedMessages = $traceableBus->getDispatchedMessages());
-        $this->assertArraySubset(array(
+        $actualTracedMessage = $tracedMessages[0];
+        unset($actualTracedMessage['callTime']); // don't check, too variable
+        $this->assertEquals([
             'message' => $message,
-            'stamps' => array(),
-            'caller' => array(
+            'stamps' => [[$stamp]],
+            'caller' => [
                 'name' => 'TraceableMessageBusTest.php',
                 'file' => __FILE__,
                 'line' => $line,
-            ),
-        ), $tracedMessages[0], true);
+            ],
+        ], $actualTracedMessage);
     }
 
     public function testItTracesDispatchWithEnvelope()
@@ -52,17 +56,19 @@ class TraceableMessageBusTest extends TestCase
 
         $traceableBus = new TraceableMessageBus($bus);
         $line = __LINE__ + 1;
-        $this->assertInstanceOf(Envelope::class, $traceableBus->dispatch($envelope));
+        $traceableBus->dispatch($envelope);
         $this->assertCount(1, $tracedMessages = $traceableBus->getDispatchedMessages());
-        $this->assertArraySubset(array(
+        $actualTracedMessage = $tracedMessages[0];
+        unset($actualTracedMessage['callTime']); // don't check, too variable
+        $this->assertEquals([
             'message' => $message,
-            'stamps' => array($stamp),
-            'caller' => array(
+            'stamps' => [[$stamp]],
+            'caller' => [
                 'name' => 'TraceableMessageBusTest.php',
                 'file' => __FILE__,
                 'line' => $line,
-            ),
-        ), $tracedMessages[0], true);
+            ],
+        ], $actualTracedMessage);
     }
 
     public function testItTracesExceptions()
@@ -70,7 +76,7 @@ class TraceableMessageBusTest extends TestCase
         $message = new DummyMessage('Hello');
 
         $bus = $this->getMockBuilder(MessageBusInterface::class)->getMock();
-        $bus->expects($this->once())->method('dispatch')->with($message)->will($this->throwException($exception = new \RuntimeException('Meh.')));
+        $bus->expects($this->once())->method('dispatch')->with($message)->willThrowException($exception = new \RuntimeException('Meh.'));
 
         $traceableBus = new TraceableMessageBus($bus);
 
@@ -82,15 +88,17 @@ class TraceableMessageBusTest extends TestCase
         }
 
         $this->assertCount(1, $tracedMessages = $traceableBus->getDispatchedMessages());
-        $this->assertArraySubset(array(
+        $actualTracedMessage = $tracedMessages[0];
+        unset($actualTracedMessage['callTime']); // don't check, too variable
+        $this->assertEquals([
             'message' => $message,
             'exception' => $exception,
-            'stamps' => array(),
-            'caller' => array(
+            'stamps' => [],
+            'caller' => [
                 'name' => 'TraceableMessageBusTest.php',
                 'file' => __FILE__,
                 'line' => $line,
-            ),
-        ), $tracedMessages[0], true);
+            ],
+        ], $actualTracedMessage);
     }
 }

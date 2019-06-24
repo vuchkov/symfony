@@ -1,6 +1,13 @@
 CHANGELOG
 =========
 
+5.0.0
+-----
+
+ * removed `PhpProcess::setPhpBinary()`
+ * `Process` must be instantiated with a command array, use `Process::fromShellCommandline()` when the command should be parsed by the shell
+ * removed `Process::setCommandLine()`
+
 4.2.0
 -----
 
@@ -21,9 +28,9 @@ CHANGELOG
 -----
 
  * environment variables will always be inherited
- * added a second `array $env = array()` argument to the `start()`, `run()`,
+ * added a second `array $env = []` argument to the `start()`, `run()`,
    `mustRun()`, and `restart()` methods of the `Process` class
- * added a second `array $env = array()` argument to the `start()` method of the
+ * added a second `array $env = []` argument to the `start()` method of the
    `PhpProcess` class
  * the `ProcessUtils::escapeArgument()` method has been removed
  * the `areEnvironmentVariablesInherited()`, `getOptions()`, and `setOptions()`

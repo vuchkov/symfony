@@ -11,6 +11,7 @@
 
 namespace Symfony\Component\Cache\Traits;
 
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Cache\Adapter\AdapterInterface;
 use Symfony\Component\Cache\CacheItem;
 use Symfony\Component\Cache\Exception\InvalidArgumentException;
@@ -30,58 +31,67 @@ trait ContractsTrait
         doGet as private contractsGet;
     }
 
-    private $callbackWrapper = array(LockRegistry::class, 'compute');
+    private $callbackWrapper = [LockRegistry::class, 'compute'];
+    private $computing = [];
 
     /**
      * Wraps the callback passed to ->get() in a callable.
      *
-     * @param callable(ItemInterface, callable, CacheInterface):mixed $callbackWrapper
-     *
      * @return callable the previous callback wrapper
      */
-    public function setCallbackWrapper(callable $callbackWrapper): callable
+    public function setCallbackWrapper(?callable $callbackWrapper): callable
     {
         $previousWrapper = $this->callbackWrapper;
-        $this->callbackWrapper = $callbackWrapper;
+        $this->callbackWrapper = $callbackWrapper ?? function (callable $callback, ItemInterface $item, bool &$save, CacheInterface $pool, \Closure $setMetadata, ?LoggerInterface $logger) {
+            return $callback($item, $save);
+        };
 
         return $previousWrapper;
     }
 
-    private function doGet(AdapterInterface $pool, string $key, callable $callback, ?float $beta)
+    private function doGet(AdapterInterface $pool, string $key, callable $callback, ?float $beta, array &$metadata = null)
     {
         if (0 > $beta = $beta ?? 1.0) {
             throw new InvalidArgumentException(sprintf('Argument "$beta" provided to "%s::get()" must be a positive number, %f given.', \get_class($this), $beta));
         }
 
-        static $save;
+        static $setMetadata;
 
-        $save = $save ?? \Closure::bind(
-            function (AdapterInterface $pool, ItemInterface $item, $value, float $startTime) {
-                if ($startTime && $item->expiry > $endTime = microtime(true)) {
-                    $item->newMetadata[ItemInterface::METADATA_EXPIRY] = $item->expiry;
-                    $item->newMetadata[ItemInterface::METADATA_CTIME] = 1000 * (int) ($endTime - $startTime);
+        $setMetadata = $setMetadata ?? \Closure::bind(
+            function (CacheItem $item, float $startTime, ?array &$metadata) {
+                if ($item->expiry > $endTime = microtime(true)) {
+                    $item->newMetadata[CacheItem::METADATA_EXPIRY] = $metadata[CacheItem::METADATA_EXPIRY] = $item->expiry;
+                    $item->newMetadata[CacheItem::METADATA_CTIME] = $metadata[CacheItem::METADATA_CTIME] = 1000 * (int) ($endTime - $startTime);
+                } else {
+                    unset($metadata[CacheItem::METADATA_EXPIRY], $metadata[CacheItem::METADATA_CTIME]);
                 }
-                $pool->save($item->set($value));
-
-                return $value;
             },
             null,
             CacheItem::class
         );
 
-        return $this->contractsGet($pool, $key, function (CacheItem $item) use ($pool, $callback, $save) {
+        return $this->contractsGet($pool, $key, function (CacheItem $item, bool &$save) use ($pool, $callback, $setMetadata, &$metadata, $key) {
             // don't wrap nor save recursive calls
-            if (null === $callbackWrapper = $this->callbackWrapper) {
-                return $callback($item);
+            if (isset($this->computing[$key])) {
+                $value = $callback($item, $save);
+                $save = false;
+
+                return $value;
             }
-            $this->callbackWrapper = null;
-            $t = microtime(true);
+
+            $this->computing[$key] = $key;
+            $startTime = microtime(true);
 
             try {
-                return $save($pool, $item, $callbackWrapper($item, $callback, $pool), $t);
+                $value = ($this->callbackWrapper)($callback, $item, $save, $pool, function (CacheItem $item) use ($setMetadata, $startTime, &$metadata) {
+                    $setMetadata($item, $startTime, $metadata);
+                }, $this->logger ?? null);
+                $setMetadata($item, $startTime, $metadata);
+
+                return $value;
             } finally {
-                $this->callbackWrapper = $callbackWrapper;
+                unset($this->computing[$key]);
             }
-        }, $beta);
+        }, $beta, $metadata, $this->logger ?? null);
     }
 }

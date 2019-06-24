@@ -14,7 +14,7 @@ namespace Symfony\Component\Messenger\Tests\Middleware;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Middleware\ActivationMiddleware;
 use Symfony\Component\Messenger\Middleware\MiddlewareInterface;
-use Symfony\Component\Messenger\Middleware\StackInterface;
+use Symfony\Component\Messenger\Test\Middleware\MiddlewareTestCase;
 use Symfony\Component\Messenger\Tests\Fixtures\DummyMessage;
 
 /**
@@ -27,8 +27,7 @@ class ActivationMiddlewareTest extends MiddlewareTestCase
         $message = new DummyMessage('Hello');
         $envelope = new Envelope($message);
 
-        $stack = $this->createMock(StackInterface::class);
-        $stack->expects($this->never())->method('next');
+        $stack = $this->getStackMock(false);
 
         $middleware = $this->createMock(MiddlewareInterface::class);
         $middleware->expects($this->once())->method('handle')->with($envelope, $stack)->willReturn($envelope);
@@ -43,11 +42,10 @@ class ActivationMiddlewareTest extends MiddlewareTestCase
         $message = new DummyMessage('Hello');
         $envelope = new Envelope($message);
 
-        $activated = $this->createPartialMock(\stdClass::class, array('__invoke'));
+        $activated = $this->createPartialMock(\stdClass::class, ['__invoke']);
         $activated->expects($this->once())->method('__invoke')->with($envelope)->willReturn(true);
 
-        $stack = $this->createMock(StackInterface::class);
-        $stack->expects($this->never())->method('next');
+        $stack = $this->getStackMock(false);
 
         $middleware = $this->createMock(MiddlewareInterface::class);
         $middleware->expects($this->once())->method('handle')->with($envelope, $stack)->willReturn($envelope);

@@ -11,9 +11,7 @@
 
 namespace Symfony\Component\DependencyInjection;
 
-use Symfony\Component\Config\Util\XmlUtils;
 use Symfony\Component\DependencyInjection\Exception\EnvNotFoundException;
-use Symfony\Component\DependencyInjection\Exception\LogicException;
 use Symfony\Component\DependencyInjection\Exception\RuntimeException;
 
 /**
@@ -33,7 +31,7 @@ class EnvVarProcessor implements EnvVarProcessorInterface
      */
     public static function getProvidedTypes()
     {
-        return array(
+        return [
             'base64' => 'string',
             'bool' => 'bool',
             'const' => 'bool|int|float|string|array',
@@ -43,9 +41,14 @@ class EnvVarProcessor implements EnvVarProcessorInterface
             'int' => 'int',
             'json' => 'array',
             'key' => 'bool|int|float|string|array',
+            'url' => 'array',
+            'query_string' => 'array',
             'resolve' => 'string',
+            'default' => 'bool|int|float|string|array',
             'string' => 'string',
-        );
+            'trim' => 'string',
+            'require' => 'bool|int|float|string|array',
+        ];
     }
 
     /**
@@ -57,7 +60,7 @@ class EnvVarProcessor implements EnvVarProcessorInterface
 
         if ('key' === $prefix) {
             if (false === $i) {
-                throw new RuntimeException(sprintf('Invalid configuration: env var "key:%s" does not contain a key specifier.', $name));
+                throw new RuntimeException(sprintf('Invalid env "key:%s": a key specifier should be provided.', $name));
             }
 
             $next = substr($name, $i + 1);
@@ -67,22 +70,52 @@ class EnvVarProcessor implements EnvVarProcessorInterface
             if (!\is_array($array)) {
                 throw new RuntimeException(sprintf('Resolved value of "%s" did not result in an array value.', $next));
             }
-            if (!array_key_exists($key, $array)) {
-                throw new RuntimeException(sprintf('Key "%s" not found in "%s" (resolved from "%s")', $key, json_encode($array), $next));
+
+            if (!isset($array[$key]) && !\array_key_exists($key, $array)) {
+                throw new EnvNotFoundException(sprintf('Key "%s" not found in "%s" (resolved from "%s").', $key, json_encode($array), $next));
             }
 
             return $array[$key];
         }
 
-        if ('file' === $prefix) {
+        if ('default' === $prefix) {
+            if (false === $i) {
+                throw new RuntimeException(sprintf('Invalid env "default:%s": a fallback parameter should be provided.', $name));
+            }
+
+            $next = substr($name, $i + 1);
+            $default = substr($name, 0, $i);
+
+            if ('' !== $default && !$this->container->hasParameter($default)) {
+                throw new RuntimeException(sprintf('Invalid env fallback in "default:%s": parameter "%s" not found.', $name, $default));
+            }
+
+            try {
+                $env = $getEnv($next);
+
+                if ('' !== $env && null !== $env) {
+                    return $env;
+                }
+            } catch (EnvNotFoundException $e) {
+                // no-op
+            }
+
+            return '' === $default ? null : $this->container->getParameter($default);
+        }
+
+        if ('file' === $prefix || 'require' === $prefix) {
             if (!is_scalar($file = $getEnv($name))) {
                 throw new RuntimeException(sprintf('Invalid file name: env var "%s" is non-scalar.', $name));
             }
             if (!file_exists($file)) {
-                throw new RuntimeException(sprintf('Env "file:%s" not found: %s does not exist.', $name, $file));
+                throw new EnvNotFoundException(sprintf('File "%s" not found (resolved from "%s").', $file, $name));
             }
 
-            return file_get_contents($file);
+            if ('file' === $prefix) {
+                return file_get_contents($file);
+            } else {
+                return require $file;
+            }
         }
 
         if (false !== $i || 'string' !== $prefix) {
@@ -95,7 +128,7 @@ class EnvVarProcessor implements EnvVarProcessorInterface
             $env = $_SERVER[$name];
         } elseif (false === ($env = getenv($name)) || null === $env) { // null is a possible value because of thread safety issues
             if (!$this->container->hasParameter("env($name)")) {
-                throw new EnvNotFoundException($name);
+                throw new EnvNotFoundException(sprintf('Environment variable not found: "%s".', $name));
             }
 
             if (null === $env = $this->container->getParameter("env($name)")) {
@@ -112,11 +145,11 @@ class EnvVarProcessor implements EnvVarProcessorInterface
         }
 
         if ('bool' === $prefix) {
-            return (bool) self::phpize($env);
+            return (bool) (filter_var($env, FILTER_VALIDATE_BOOLEAN) ?: filter_var($env, FILTER_VALIDATE_INT) ?: filter_var($env, FILTER_VALIDATE_FLOAT));
         }
 
         if ('int' === $prefix) {
-            if (!is_numeric($env = self::phpize($env))) {
+            if (false === $env = filter_var($env, FILTER_VALIDATE_INT) ?: filter_var($env, FILTER_VALIDATE_FLOAT)) {
                 throw new RuntimeException(sprintf('Non-numeric env var "%s" cannot be cast to int.', $name));
             }
 
@@ -124,7 +157,7 @@ class EnvVarProcessor implements EnvVarProcessorInterface
         }
 
         if ('float' === $prefix) {
-            if (!is_numeric($env = self::phpize($env))) {
+            if (false === $env = filter_var($env, FILTER_VALIDATE_FLOAT)) {
                 throw new RuntimeException(sprintf('Non-numeric env var "%s" cannot be cast to float.', $name));
             }
 
@@ -157,6 +190,37 @@ class EnvVarProcessor implements EnvVarProcessorInterface
             return $env;
         }
 
+        if ('url' === $prefix) {
+            $parsedEnv = parse_url($env);
+
+            if (false === $parsedEnv) {
+                throw new RuntimeException(sprintf('Invalid URL in env var "%s"', $name));
+            }
+            if (!isset($parsedEnv['scheme'], $parsedEnv['host'])) {
+                throw new RuntimeException(sprintf('Invalid URL env var "%s": schema and host expected, %s given.', $name, $env));
+            }
+            $parsedEnv += [
+                'port' => null,
+                'user' => null,
+                'pass' => null,
+                'path' => null,
+                'query' => null,
+                'fragment' => null,
+            ];
+
+            // remove the '/' separator
+            $parsedEnv['path'] = '/' === $parsedEnv['path'] ? null : substr($parsedEnv['path'], 1);
+
+            return $parsedEnv;
+        }
+
+        if ('query_string' === $prefix) {
+            $queryString = parse_url($env, PHP_URL_QUERY) ?: $env;
+            parse_str($queryString, $result);
+
+            return $result;
+        }
+
         if ('resolve' === $prefix) {
             return preg_replace_callback('/%%|%([^%\s]+)%/', function ($match) use ($name) {
                 if (!isset($match[1])) {
@@ -175,15 +239,10 @@ class EnvVarProcessor implements EnvVarProcessorInterface
             return str_getcsv($env);
         }
 
-        throw new RuntimeException(sprintf('Unsupported env var prefix "%s".', $prefix));
-    }
-
-    private static function phpize($value)
-    {
-        if (!class_exists(XmlUtils::class)) {
-            throw new LogicException('The Symfony Config component is required to cast env vars to "bool", "int" or "float".');
+        if ('trim' === $prefix) {
+            return trim($env);
         }
 
-        return XmlUtils::phpize($value);
+        throw new RuntimeException(sprintf('Unsupported env var prefix "%s".', $prefix));
     }
 }

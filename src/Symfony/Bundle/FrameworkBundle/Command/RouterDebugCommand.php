@@ -19,6 +19,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\HttpKernel\Debug\FileLinkFormatter;
 use Symfony\Component\Routing\RouteCollection;
 use Symfony\Component\Routing\RouterInterface;
 
@@ -34,12 +35,14 @@ class RouterDebugCommand extends Command
 {
     protected static $defaultName = 'debug:router';
     private $router;
+    private $fileLinkFormatter;
 
-    public function __construct(RouterInterface $router)
+    public function __construct(RouterInterface $router, FileLinkFormatter $fileLinkFormatter = null)
     {
         parent::__construct();
 
         $this->router = $router;
+        $this->fileLinkFormatter = $fileLinkFormatter;
     }
 
     /**
@@ -48,12 +51,12 @@ class RouterDebugCommand extends Command
     protected function configure()
     {
         $this
-            ->setDefinition(array(
+            ->setDefinition([
                 new InputArgument('name', InputArgument::OPTIONAL, 'A route name'),
                 new InputOption('show-controllers', null, InputOption::VALUE_NONE, 'Show assigned controllers in overview'),
                 new InputOption('format', null, InputOption::VALUE_REQUIRED, 'The output format (txt, xml, json, or md)', 'txt'),
                 new InputOption('raw', null, InputOption::VALUE_NONE, 'To output raw route(s)'),
-            ))
+            ])
             ->setDescription('Displays current routes for an application')
             ->setHelp(<<<'EOF'
 The <info>%command.name%</info> displays the configured routes:
@@ -74,7 +77,7 @@ EOF
     {
         $io = new SymfonyStyle($input, $output);
         $name = $input->getArgument('name');
-        $helper = new DescriptorHelper();
+        $helper = new DescriptorHelper($this->fileLinkFormatter);
         $routes = $this->router->getRouteCollection();
 
         if ($name) {
@@ -88,25 +91,25 @@ EOF
                 throw new InvalidArgumentException(sprintf('The route "%s" does not exist.', $name));
             }
 
-            $helper->describe($io, $route, array(
+            $helper->describe($io, $route, [
                 'format' => $input->getOption('format'),
                 'raw_text' => $input->getOption('raw'),
                 'name' => $name,
                 'output' => $io,
-            ));
+            ]);
         } else {
-            $helper->describe($io, $routes, array(
+            $helper->describe($io, $routes, [
                 'format' => $input->getOption('format'),
                 'raw_text' => $input->getOption('raw'),
                 'show_controllers' => $input->getOption('show-controllers'),
                 'output' => $io,
-            ));
+            ]);
         }
     }
 
     private function findRouteNameContaining(string $name, RouteCollection $routes): array
     {
-        $foundRoutesNames = array();
+        $foundRoutesNames = [];
         foreach ($routes as $routeName => $route) {
             if (false !== stripos($routeName, $name)) {
                 $foundRoutesNames[] = $routeName;

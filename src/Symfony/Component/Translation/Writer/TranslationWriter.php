@@ -23,7 +23,7 @@ use Symfony\Component\Translation\MessageCatalogue;
  */
 class TranslationWriter implements TranslationWriterInterface
 {
-    private $dumpers = array();
+    private $dumpers = [];
 
     /**
      * Adds a dumper to the writer.
@@ -34,22 +34,6 @@ class TranslationWriter implements TranslationWriterInterface
     public function addDumper($format, DumperInterface $dumper)
     {
         $this->dumpers[$format] = $dumper;
-    }
-
-    /**
-     * Disables dumper backup.
-     *
-     * @deprecated since Symfony 4.1
-     */
-    public function disableBackup()
-    {
-        @trigger_error(sprintf('The "%s()" method is deprecated since Symfony 4.1.', __METHOD__), E_USER_DEPRECATED);
-
-        foreach ($this->dumpers as $dumper) {
-            if (method_exists($dumper, 'setBackup')) {
-                $dumper->setBackup(false);
-            }
-        }
     }
 
     /**
@@ -71,7 +55,7 @@ class TranslationWriter implements TranslationWriterInterface
      *
      * @throws InvalidArgumentException
      */
-    public function write(MessageCatalogue $catalogue, $format, $options = array())
+    public function write(MessageCatalogue $catalogue, $format, $options = [])
     {
         if (!isset($this->dumpers[$format])) {
             throw new InvalidArgumentException(sprintf('There is no dumper associated with format "%s".', $format));

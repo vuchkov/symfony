@@ -12,29 +12,32 @@
 namespace Symfony\Component\Security\Http\Firewall;
 
 use Psr\Log\LoggerInterface;
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-use Symfony\Component\HttpKernel\Event\FilterResponseEvent;
-use Symfony\Component\HttpKernel\Event\GetResponseEvent;
+use Symfony\Component\HttpKernel\Event\RequestEvent;
+use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Security\Core\Authentication\AuthenticationTrustResolver;
 use Symfony\Component\Security\Core\Authentication\AuthenticationTrustResolverInterface;
 use Symfony\Component\Security\Core\Authentication\Token\AnonymousToken;
 use Symfony\Component\Security\Core\Authentication\Token\RememberMeToken;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
+use Symfony\Component\Security\Core\Authentication\Token\SwitchUserToken;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Exception\UnsupportedUserException;
 use Symfony\Component\Security\Core\Exception\UsernameNotFoundException;
-use Symfony\Component\Security\Core\Role\SwitchUserRole;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Core\User\UserProviderInterface;
+use Symfony\Component\Security\Http\Event\DeauthenticatedEvent;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
  * ContextListener manages the SecurityContext persistence through a session.
  *
  * @author Fabien Potencier <fabien@symfony.com>
  * @author Johannes M. Schmitt <schmittjoh@gmail.com>
+ *
+ * @final
  */
-class ContextListener implements ListenerInterface
+class ContextListener
 {
     private $tokenStorage;
     private $sessionKey;
@@ -62,24 +65,12 @@ class ContextListener implements ListenerInterface
     }
 
     /**
-     * Enables deauthentication during refreshUser when the user has changed.
-     *
-     * @param bool $logoutOnUserChange
-     *
-     * @deprecated since Symfony 4.1
-     */
-    public function setLogoutOnUserChange($logoutOnUserChange)
-    {
-        @trigger_error(sprintf('The "%s()" method is deprecated since Symfony 4.1.', __METHOD__), E_USER_DEPRECATED);
-    }
-
-    /**
      * Reads the Security Token from the session.
      */
-    public function handle(GetResponseEvent $event)
+    public function __invoke(RequestEvent $event)
     {
         if (!$this->registered && null !== $this->dispatcher && $event->isMasterRequest()) {
-            $this->dispatcher->addListener(KernelEvents::RESPONSE, array($this, 'onKernelResponse'));
+            $this->dispatcher->addListener(KernelEvents::RESPONSE, [$this, 'onKernelResponse']);
             $this->registered = true;
         }
 
@@ -95,17 +86,17 @@ class ContextListener implements ListenerInterface
         $token = $this->safelyUnserialize($token);
 
         if (null !== $this->logger) {
-            $this->logger->debug('Read existing security token from the session.', array(
+            $this->logger->debug('Read existing security token from the session.', [
                 'key' => $this->sessionKey,
                 'token_class' => \is_object($token) ? \get_class($token) : null,
-            ));
+            ]);
         }
 
         if ($token instanceof TokenInterface) {
             $token = $this->refreshUser($token);
         } elseif (null !== $token) {
             if (null !== $this->logger) {
-                $this->logger->warning('Expected a security token from the session, got something else.', array('key' => $this->sessionKey, 'received' => $token));
+                $this->logger->warning('Expected a security token from the session, got something else.', ['key' => $this->sessionKey, 'received' => $token]);
             }
 
             $token = null;
@@ -117,7 +108,7 @@ class ContextListener implements ListenerInterface
     /**
      * Writes the security token into the session.
      */
-    public function onKernelResponse(FilterResponseEvent $event)
+    public function onKernelResponse(ResponseEvent $event)
     {
         if (!$event->isMasterRequest()) {
             return;
@@ -129,7 +120,7 @@ class ContextListener implements ListenerInterface
             return;
         }
 
-        $this->dispatcher->removeListener(KernelEvents::RESPONSE, array($this, 'onKernelResponse'));
+        $this->dispatcher->removeListener(KernelEvents::RESPONSE, [$this, 'onKernelResponse']);
         $this->registered = false;
         $session = $request->getSession();
 
@@ -141,7 +132,7 @@ class ContextListener implements ListenerInterface
             $session->set($this->sessionKey, serialize($token));
 
             if (null !== $this->logger) {
-                $this->logger->debug('Stored the security token in the session.', array('key' => $this->sessionKey));
+                $this->logger->debug('Stored the security token in the session.', ['key' => $this->sessionKey]);
             }
         }
     }
@@ -149,11 +140,9 @@ class ContextListener implements ListenerInterface
     /**
      * Refreshes the user by reloading it from the user provider.
      *
-     * @return TokenInterface|null
-     *
      * @throws \RuntimeException
      */
-    protected function refreshUser(TokenInterface $token)
+    protected function refreshUser(TokenInterface $token): ?TokenInterface
     {
         $user = $token->getUser();
         if (!$user instanceof UserInterface) {
@@ -170,7 +159,7 @@ class ContextListener implements ListenerInterface
 
             try {
                 $refreshedUser = $provider->refreshUser($user);
-                $newToken = unserialize(serialize($token));
+                $newToken = clone $token;
                 $newToken->setUser($refreshedUser);
 
                 // tokens can be deauthenticated if the user has been changed.
@@ -178,7 +167,7 @@ class ContextListener implements ListenerInterface
                     $userDeauthenticated = true;
 
                     if (null !== $this->logger) {
-                        $this->logger->debug('Cannot refresh token because user has changed.', array('username' => $refreshedUser->getUsername(), 'provider' => \get_class($provider)));
+                        $this->logger->debug('Cannot refresh token because user has changed.', ['username' => $refreshedUser->getUsername(), 'provider' => \get_class($provider)]);
                     }
 
                     continue;
@@ -187,13 +176,10 @@ class ContextListener implements ListenerInterface
                 $token->setUser($refreshedUser);
 
                 if (null !== $this->logger) {
-                    $context = array('provider' => \get_class($provider), 'username' => $refreshedUser->getUsername());
+                    $context = ['provider' => \get_class($provider), 'username' => $refreshedUser->getUsername()];
 
-                    foreach ($token->getRoles() as $role) {
-                        if ($role instanceof SwitchUserRole) {
-                            $context['impersonator_username'] = $role->getSource()->getUsername();
-                            break;
-                        }
+                    if ($token instanceof SwitchUserToken) {
+                        $context['impersonator_username'] = $token->getOriginalToken()->getUsername();
                     }
 
                     $this->logger->debug('User was reloaded from a user provider.', $context);
@@ -204,7 +190,7 @@ class ContextListener implements ListenerInterface
                 // let's try the next user provider
             } catch (UsernameNotFoundException $e) {
                 if (null !== $this->logger) {
-                    $this->logger->warning('Username could not be found in the selected user provider.', array('username' => $e->getUsername(), 'provider' => \get_class($provider)));
+                    $this->logger->warning('Username could not be found in the selected user provider.', ['username' => $e->getUsername(), 'provider' => \get_class($provider)]);
                 }
 
                 $userNotFoundByProvider = true;
@@ -214,6 +200,10 @@ class ContextListener implements ListenerInterface
         if ($userDeauthenticated) {
             if (null !== $this->logger) {
                 $this->logger->debug('Token was deauthenticated after trying to refresh it.');
+            }
+
+            if (null !== $this->dispatcher) {
+                $this->dispatcher->dispatch(new DeauthenticatedEvent($token, $newToken), DeauthenticatedEvent::class);
             }
 
             return null;
@@ -230,7 +220,7 @@ class ContextListener implements ListenerInterface
     {
         $e = $token = null;
         $prevUnserializeHandler = ini_set('unserialize_callback_func', __CLASS__.'::handleUnserializeCallback');
-        $prevErrorHandler = set_error_handler(function ($type, $msg, $file, $line, $context = array()) use (&$prevErrorHandler) {
+        $prevErrorHandler = set_error_handler(function ($type, $msg, $file, $line, $context = []) use (&$prevErrorHandler) {
             if (__FILE__ === $file) {
                 throw new \ErrorException($msg, 0x37313bc, $type, $file, $line);
             }
@@ -249,7 +239,7 @@ class ContextListener implements ListenerInterface
                 throw $e;
             }
             if ($this->logger) {
-                $this->logger->warning('Failed to unserialize the security token from the session.', array('key' => $this->sessionKey, 'received' => $serializedToken, 'exception' => $e));
+                $this->logger->warning('Failed to unserialize the security token from the session.', ['key' => $this->sessionKey, 'received' => $serializedToken, 'exception' => $e]);
             }
         }
 

@@ -108,7 +108,7 @@ interface FormConfigBuilderInterface extends FormConfigInterface
     public function setDataMapper(DataMapperInterface $dataMapper = null);
 
     /**
-     * Set whether the form is disabled.
+     * Sets whether the form is disabled.
      *
      * @param bool $disabled Whether the form is disabled
      *
@@ -166,8 +166,7 @@ interface FormConfigBuilderInterface extends FormConfigInterface
     /**
      * Sets whether the form's data should be modified by reference.
      *
-     * @param bool $byReference Whether the data should be
-     *                          modified by reference
+     * @param bool $byReference Whether the data should be modified by reference
      *
      * @return $this The configuration object
      */
@@ -194,7 +193,7 @@ interface FormConfigBuilderInterface extends FormConfigInterface
     public function setCompound($compound);
 
     /**
-     * Set the types.
+     * Sets the resolved type.
      *
      * @return $this The configuration object
      */
@@ -203,7 +202,7 @@ interface FormConfigBuilderInterface extends FormConfigInterface
     /**
      * Sets the initial data of the form.
      *
-     * @param mixed $data The data of the form in application format
+     * @param mixed $data The data of the form in model format
      *
      * @return $this The configuration object
      */
@@ -214,9 +213,12 @@ interface FormConfigBuilderInterface extends FormConfigInterface
      *
      * A form with locked data is restricted to the data passed in
      * this configuration. The data can only be modified then by
-     * submitting the form.
+     * submitting the form or using PRE_SET_DATA event.
      *
-     * @param bool $locked Whether to lock the default data
+     * It means data passed to a factory method or mapped from the
+     * parent will be ignored.
+     *
+     * @param bool $locked Whether to lock the default configured data
      *
      * @return $this The configuration object
      */
@@ -257,10 +259,10 @@ interface FormConfigBuilderInterface extends FormConfigInterface
      *
      * Should be set to true only for root forms.
      *
-     * @param bool $initialize true to initialize the form automatically,
+     * @param bool $initialize True to initialize the form automatically,
      *                         false to suppress automatic initialization.
      *                         In the second case, you need to call
-     *                         {@link FormInterface::initialize()} manually
+     *                         {@link FormInterface::initialize()} manually.
      *
      * @return $this The configuration object
      */

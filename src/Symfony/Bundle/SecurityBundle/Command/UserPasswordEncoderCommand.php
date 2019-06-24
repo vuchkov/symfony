@@ -38,7 +38,7 @@ class UserPasswordEncoderCommand extends Command
     private $encoderFactory;
     private $userClasses;
 
-    public function __construct(EncoderFactoryInterface $encoderFactory, array $userClasses = array())
+    public function __construct(EncoderFactoryInterface $encoderFactory, array $userClasses = [])
     {
         $this->encoderFactory = $encoderFactory;
         $this->userClasses = $userClasses;
@@ -70,7 +70,7 @@ Suppose that you have the following security configuration in your application:
 security:
     encoders:
         Symfony\Component\Security\Core\User\User: plaintext
-        App\Entity\User: bcrypt
+        App\Entity\User: auto
 </comment>
 
 If you execute the command non-interactively, the first available configured
@@ -146,14 +146,14 @@ EOF
 
         $encodedPassword = $encoder->encodePassword($password, $salt);
 
-        $rows = array(
-            array('Encoder used', \get_class($encoder)),
-            array('Encoded password', $encodedPassword),
-        );
+        $rows = [
+            ['Encoder used', \get_class($encoder)],
+            ['Encoded password', $encodedPassword],
+        ];
         if (!$emptySalt) {
-            $rows[] = array('Generated salt', $salt);
+            $rows[] = ['Generated salt', $salt];
         }
-        $io->table(array('Key', 'Value'), $rows);
+        $io->table(['Key', 'Value'], $rows);
 
         if (!$emptySalt) {
             $errorIo->note(sprintf('Make sure that your salt storage field fits the salt length: %s chars', \strlen($salt)));
@@ -180,7 +180,7 @@ EOF
         })->setHidden(true)->setMaxAttempts(20);
     }
 
-    private function generateSalt()
+    private function generateSalt(): string
     {
         return base64_encode(random_bytes(30));
     }

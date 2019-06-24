@@ -1,7 +1,6 @@
 language: php
 
-dist: trusty
-sudo: false
+dist: xenial
 
 git:
     depth: 2
@@ -12,22 +11,23 @@ addons:
         - language-pack-fr-base
         - ldap-utils
         - slapd
-        - librabbitmq-dev
         - zookeeperd
         - libzookeeper-mt-dev
+        - rabbitmq-server
 
 env:
     global:
-        - MIN_PHP=7.1.3
+        - MIN_PHP=7.2.9
         - SYMFONY_PROCESS_PHP_TEST_BINARY=~/.phpenv/shims/php
         - MESSENGER_AMQP_DSN=amqp://localhost/%2f/messages
+        - MESSENGER_REDIS_DSN=redis://127.0.0.1:7001/messages
 
 matrix:
     include:
-        - php: 7.1
-        - php: 7.1
-          env: deps=high
         - php: 7.2
+        - php: 7.2
+          env: deps=high
+        - php: 7.3
           env: deps=low
 
     fast_finish: true
@@ -47,9 +47,18 @@ services:
 
 before_install:
     - |
+      # Enable Sury ppa
+      sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 6B05F25D762E3157
+      sudo add-apt-repository -y ppa:ondrej/php
+      sudo rm /etc/apt/sources.list.d/google-chrome.list
+      sudo rm /etc/apt/sources.list.d/mongodb-3.4.list
+      sudo apt update
+      sudo apt install -y librabbitmq-dev libsodium-dev
+
+    - |
       # Start Redis cluster
-      docker pull grokzen/redis-cluster:4.0.8
-      docker run -d -p 7000:7000 -p 7001:7001 -p 7002:7002 -p 7003:7003 -p 7004:7004 -p 7005:7005 --name redis-cluster grokzen/redis-cluster:4.0.8
+      docker pull grokzen/redis-cluster:5.0.4
+      docker run -d -p 7000:7000 -p 7001:7001 -p 7002:7002 -p 7003:7003 -p 7004:7004 -p 7005:7005 --name redis-cluster grokzen/redis-cluster:5.0.4
       export REDIS_CLUSTER_HOSTS='localhost:7000 localhost:7001 localhost:7002 localhost:7003 localhost:7004 localhost:7005'
 
     - |
@@ -57,6 +66,9 @@ before_install:
       set -e
       stty cols 120
       mkdir /tmp/slapd
+      if [ ! -e /tmp/slapd-modules ]; then
+          [ -d /usr/lib/openldap ] && ln -s /usr/lib/openldap /tmp/slapd-modules || ln -s /usr/lib/ldap /tmp/slapd-modules
+      fi
       slapd -f src/Symfony/Component/Ldap/Tests/Fixtures/conf/slapd.conf -h ldap://localhost:3389 &
       [ -d ~/.composer ] || mkdir ~/.composer
       cp .composer/* ~/.composer/
@@ -106,6 +118,7 @@ before_install:
           local ext_name=$1
           local ext_so=$2
           local INI=$3
+          local input=${4:-yes}
           local ext_dir=$(php -r "echo ini_get('extension_dir');")
           local ext_cache=~/php-ext/$(basename $ext_dir)/$ext_name
 
@@ -114,7 +127,7 @@ before_install:
           else
               rm ~/.pearrc /tmp/pear 2>/dev/null || true
               mkdir -p $ext_cache
-              echo yes | pecl install -f $ext_name &&
+              echo $input | pecl install -f $ext_name &&
               cp $ext_dir/$ext_so $ext_cache
           fi
       }
@@ -137,7 +150,6 @@ before_install:
           echo session.gc_probability = 0 >> $INI
           echo opcache.enable_cli = 1 >> $INI
           echo apc.enable_cli = 1 >> $INI
-          echo extension = redis.so >> $INI
           echo extension = memcached.so >> $INI
       done
 
@@ -147,26 +159,20 @@ before_install:
           export PHP=$PHP
           phpenv global $PHP
           INI=~/.phpenv/versions/$PHP/etc/conf.d/travis.ini
-
-          # Install librabbitmq
-          wget http://ftp.debian.org/debian/pool/main/libr/librabbitmq/librabbitmq-dev_0.5.2-2_amd64.deb
-          wget http://ftp.debian.org/debian/pool/main/libr/librabbitmq/librabbitmq1_0.5.2-2_amd64.deb
-          sudo dpkg -i librabbitmq1_0.5.2-2_amd64.deb librabbitmq-dev_0.5.2-2_amd64.deb
-
           if ! php --ri sodium > /dev/null; then
-              # install libsodium
-              sudo add-apt-repository ppa:ondrej/php -y
-              sudo apt-get update -q
-              sudo apt-get install libsodium-dev -y
               tfold ext.libsodium tpecl libsodium sodium.so $INI
           fi
 
-          tfold ext.apcu tpecl apcu-5.1.6 apcu.so $INI
-          tfold ext.mongodb tpecl mongodb-1.5.0 mongodb.so $INI
-          tfold ext.amqp tpecl amqp-1.9.3 amqp.so $INI
-          tfold ext.igbinary tpecl igbinary-2.0.6 igbinary.so $INI
-          tfold ext.zookeeper tpecl zookeeper-0.5.0 zookeeper.so $INI
+          tfold ext.apcu tpecl apcu-5.1.16 apcu.so $INI
+          tfold ext.mongodb tpecl mongodb-1.6.0alpha1 mongodb.so $INI
+          tfold ext.igbinary tpecl igbinary-2.0.8 igbinary.so $INI
+          tfold ext.zookeeper tpecl zookeeper-0.7.1 zookeeper.so $INI
+          tfold ext.amqp tpecl amqp-1.9.4 amqp.so $INI
+          tfold ext.redis tpecl redis-4.3.0 redis.so $INI "no"
       done
+    - |
+      # List all php extensions with versions
+    - php -r 'foreach (get_loaded_extensions() as $extension) echo $extension . " " . phpversion($extension) . PHP_EOL;'
 
     - |
       # Load fixtures
@@ -201,9 +207,15 @@ install:
       fi
 
     - |
+      # Skip the phpunit-bridge on not-master branches when $deps is empty
+      if [[ ! $deps && $TRAVIS_BRANCH != master ]]; then
+          COMPONENTS=$(find src/Symfony -mindepth 3 -type f -name phpunit.xml.dist -not -wholename '*/Bridge/PhpUnit/*' -printf '%h\n')
+      fi
+
+    - |
       # Install symfony/flex
       if [[ $deps = low ]]; then
-          export SYMFONY_REQUIRE='>=2.3'
+          export SYMFONY_REQUIRE='>=3.4'
       else
           export SYMFONY_REQUIRE=">=$SYMFONY_VERSION"
       fi
@@ -227,16 +239,16 @@ install:
               break
           fi
           phpenv global $PHP
-          ([[ $deps ]] && cd src/Symfony/Component/HttpFoundation; composer require --dev --no-update mongodb/mongodb)
+          ([[ $deps ]] && cd src/Symfony/Component/HttpFoundation; composer config platform.ext-mongodb 1.6.0; composer require --dev --no-update mongodb/mongodb)
           tfold 'composer update' $COMPOSER_UP
           tfold 'phpunit install' ./phpunit install
           if [[ $deps = high ]]; then
-              echo "$COMPONENTS" | parallel --gnu -j10% "tfold {} 'cd {} && $COMPOSER_UP && $PHPUNIT_X$LEGACY'"
+              echo "$COMPONENTS" | parallel --gnu "tfold {} 'cd {} && $COMPOSER_UP && $PHPUNIT_X$LEGACY'"
           elif [[ $deps = low ]]; then
               [[ -e ~/php-ext/composer-lowest.lock.tar ]] && tar -xf ~/php-ext/composer-lowest.lock.tar
               tar -cf ~/php-ext/composer-lowest.lock.tar --files-from /dev/null
               php .github/rm-invalid-lowest-lock-files.php $COMPONENTS
-              echo "$COMPONENTS" | parallel --gnu -j10% "tfold {} 'cd {} && ([ -e composer.lock ] && ${COMPOSER_UP/update/install} || $COMPOSER_UP --prefer-lowest --prefer-stable) && $PHPUNIT_X'"
+              echo "$COMPONENTS" | parallel --gnu "tfold {} 'cd {} && ([ -e composer.lock ] && ${COMPOSER_UP/update/install} || $COMPOSER_UP --prefer-lowest --prefer-stable) && $PHPUNIT_X'"
               echo "$COMPONENTS" | xargs -n1 -I{} tar --append -f ~/php-ext/composer-lowest.lock.tar {}/composer.lock
           else
               echo "$COMPONENTS" | parallel --gnu "tfold {} $PHPUNIT_X {}"

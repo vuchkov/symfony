@@ -18,6 +18,8 @@ use Symfony\Component\Messenger\Middleware\StackMiddleware;
  * @author Samuel Roze <samuel.roze@gmail.com>
  * @author Matthias Noback <matthiasnoback@gmail.com>
  * @author Nicolas Grekas <p@tchwork.com>
+ *
+ * @experimental in 4.3
  */
 class MessageBus implements MessageBusInterface
 {
@@ -26,7 +28,7 @@ class MessageBus implements MessageBusInterface
     /**
      * @param MiddlewareInterface[]|iterable $middlewareHandlers
      */
-    public function __construct(iterable $middlewareHandlers = array())
+    public function __construct(iterable $middlewareHandlers = [])
     {
         if ($middlewareHandlers instanceof \IteratorAggregate) {
             $this->middlewareAggregate = $middlewareHandlers;
@@ -50,12 +52,12 @@ class MessageBus implements MessageBusInterface
     /**
      * {@inheritdoc}
      */
-    public function dispatch($message): Envelope
+    public function dispatch($message, array $stamps = []): Envelope
     {
         if (!\is_object($message)) {
             throw new \TypeError(sprintf('Invalid argument provided to "%s()": expected object, but got %s.', __METHOD__, \gettype($message)));
         }
-        $envelope = $message instanceof Envelope ? $message : new Envelope($message);
+        $envelope = Envelope::wrap($message, $stamps);
         $middlewareIterator = $this->middlewareAggregate->getIterator();
 
         while ($middlewareIterator instanceof \IteratorAggregate) {

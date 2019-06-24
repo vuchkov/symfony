@@ -28,9 +28,9 @@ class ImmutableEventDispatcher implements EventDispatcherInterface
     /**
      * {@inheritdoc}
      */
-    public function dispatch($eventName, Event $event = null)
+    public function dispatch($event, string $eventName = null): object
     {
-        return $this->dispatcher->dispatch($eventName, $event);
+        return $this->dispatcher->dispatch($event, $eventName);
     }
 
     /**

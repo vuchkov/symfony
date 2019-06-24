@@ -54,28 +54,34 @@ class CachePoolPass implements CompilerPassInterface
         }
         $seed .= '.'.$container->getParameter('kernel.container_class');
 
-        $pools = array();
-        $clearers = array();
-        $attributes = array(
+        $pools = [];
+        $clearers = [];
+        $attributes = [
             'provider',
             'name',
             'namespace',
             'default_lifetime',
             'reset',
-        );
+        ];
         foreach ($container->findTaggedServiceIds($this->cachePoolTag) as $id => $tags) {
             $adapter = $pool = $container->getDefinition($id);
             if ($pool->isAbstract()) {
                 continue;
             }
+            $class = $adapter->getClass();
             while ($adapter instanceof ChildDefinition) {
                 $adapter = $container->findDefinition($adapter->getParent());
+                $class = $class ?: $adapter->getClass();
                 if ($t = $adapter->getTag($this->cachePoolTag)) {
                     $tags[0] += $t[0];
                 }
             }
             $name = $tags[0]['name'] ?? $id;
             if (!isset($tags[0]['namespace'])) {
+                if (null !== $class) {
+                    $seed .= '.'.$class;
+                }
+
                 $tags[0]['namespace'] = $this->getNamespace($seed, $name);
             }
             if (isset($tags[0]['clearer'])) {
@@ -97,7 +103,7 @@ class CachePoolPass implements CompilerPassInterface
                     // no-op
                 } elseif ('reset' === $attr) {
                     if ($tags[0][$attr]) {
-                        $pool->addTag($this->kernelResetTag, array('method' => $tags[0][$attr]));
+                        $pool->addTag($this->kernelResetTag, ['method' => $tags[0][$attr]]);
                     }
                 } elseif ('namespace' !== $attr || ArrayAdapter::class !== $adapter->getClass()) {
                     $pool->replaceArgument($i++, $tags[0][$attr]);
@@ -136,6 +142,10 @@ class CachePoolPass implements CompilerPassInterface
                 $clearer->addTag($this->cacheSystemClearerTag);
             }
         }
+
+        if ($container->hasDefinition('console.command.cache_pool_list')) {
+            $container->getDefinition('console.command.cache_pool_list')->replaceArgument(0, array_keys($pools));
+        }
     }
 
     private function getNamespace($seed, $id)
@@ -156,8 +166,8 @@ class CachePoolPass implements CompilerPassInterface
             if (!$container->hasDefinition($name = '.cache_connection.'.ContainerBuilder::hash($dsn))) {
                 $definition = new Definition(AbstractAdapter::class);
                 $definition->setPublic(false);
-                $definition->setFactory(array(AbstractAdapter::class, 'createConnection'));
-                $definition->setArguments(array($dsn, array('lazy' => true)));
+                $definition->setFactory([AbstractAdapter::class, 'createConnection']);
+                $definition->setArguments([$dsn, ['lazy' => true]]);
                 $container->setDefinition($name, $definition);
             }
         }

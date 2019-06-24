@@ -102,36 +102,6 @@ class TableStyle
     }
 
     /**
-     * Sets horizontal border character.
-     *
-     * @param string $horizontalBorderChar
-     *
-     * @return $this
-     *
-     * @deprecated since Symfony 4.1, use {@link setHorizontalBorderChars()} instead.
-     */
-    public function setHorizontalBorderChar($horizontalBorderChar)
-    {
-        @trigger_error(sprintf('The "%s()" method is deprecated since Symfony 4.1, use setHorizontalBorderChars() instead.', __METHOD__), E_USER_DEPRECATED);
-
-        return $this->setHorizontalBorderChars($horizontalBorderChar, $horizontalBorderChar);
-    }
-
-    /**
-     * Gets horizontal border character.
-     *
-     * @return string
-     *
-     * @deprecated since Symfony 4.1, use {@link getBorderChars()} instead.
-     */
-    public function getHorizontalBorderChar()
-    {
-        @trigger_error(sprintf('The "%s()" method is deprecated since Symfony 4.1, use getBorderChars() instead.', __METHOD__), E_USER_DEPRECATED);
-
-        return $this->horizontalOutsideBorderChar;
-    }
-
-    /**
      * Sets vertical border characters.
      *
      * <code>
@@ -158,48 +128,18 @@ class TableStyle
     }
 
     /**
-     * Sets vertical border character.
-     *
-     * @param string $verticalBorderChar
-     *
-     * @return $this
-     *
-     * @deprecated since Symfony 4.1, use {@link setVerticalBorderChars()} instead.
-     */
-    public function setVerticalBorderChar($verticalBorderChar)
-    {
-        @trigger_error(sprintf('The "%s()" method is deprecated since Symfony 4.1, use setVerticalBorderChars() instead.', __METHOD__), E_USER_DEPRECATED);
-
-        return $this->setVerticalBorderChars($verticalBorderChar, $verticalBorderChar);
-    }
-
-    /**
-     * Gets vertical border character.
-     *
-     * @return string
-     *
-     * @deprecated since Symfony 4.1, use {@link getBorderChars()} instead.
-     */
-    public function getVerticalBorderChar()
-    {
-        @trigger_error(sprintf('The "%s()" method is deprecated since Symfony 4.1, use getBorderChars() instead.', __METHOD__), E_USER_DEPRECATED);
-
-        return $this->verticalOutsideBorderChar;
-    }
-
-    /**
      * Gets border characters.
      *
      * @internal
      */
     public function getBorderChars()
     {
-        return array(
+        return [
             $this->horizontalOutsideBorderChar,
             $this->verticalOutsideBorderChar,
             $this->horizontalInsideBorderChar,
             $this->verticalInsideBorderChar,
-        );
+        ];
     }
 
     /**
@@ -260,25 +200,9 @@ class TableStyle
     }
 
     /**
-     * Sets crossing character.
-     *
-     * @param string $crossingChar
-     *
-     * @return $this
-     *
-     * @deprecated since Symfony 4.1. Use {@link setDefaultCrossingChar()} instead.
-     */
-    public function setCrossingChar($crossingChar)
-    {
-        @trigger_error(sprintf('The "%s()" method is deprecated since Symfony 4.1. Use setDefaultCrossingChar() instead.', __METHOD__), E_USER_DEPRECATED);
-
-        return $this->setDefaultCrossingChar($crossingChar);
-    }
-
-    /**
      * Gets crossing character.
      *
-     * @return string $crossingChar
+     * @return string
      */
     public function getCrossingChar()
     {
@@ -292,7 +216,7 @@ class TableStyle
      */
     public function getCrossingChars(): array
     {
-        return array(
+        return [
             $this->crossingChar,
             $this->crossingTopLeftChar,
             $this->crossingTopMidChar,
@@ -305,7 +229,7 @@ class TableStyle
             $this->crossingTopLeftBottomChar,
             $this->crossingTopMidBottomChar,
             $this->crossingTopRightBottomChar,
-        );
+        ];
     }
 
     /**
@@ -413,7 +337,7 @@ class TableStyle
      */
     public function setPadType($padType)
     {
-        if (!\in_array($padType, array(STR_PAD_LEFT, STR_PAD_RIGHT, STR_PAD_BOTH), true)) {
+        if (!\in_array($padType, [STR_PAD_LEFT, STR_PAD_RIGHT, STR_PAD_BOTH], true)) {
             throw new InvalidArgumentException('Invalid padding type. Expected one of (STR_PAD_LEFT, STR_PAD_RIGHT, STR_PAD_BOTH).');
         }
 

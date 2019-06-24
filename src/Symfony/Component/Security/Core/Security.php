@@ -17,8 +17,10 @@ use Symfony\Component\Security\Core\User\UserInterface;
 
 /**
  * Helper class for commonly-needed security tasks.
+ *
+ * @final
  */
-final class Security
+class Security
 {
     const ACCESS_DENIED_ERROR = '_security.403_error';
     const AUTHENTICATION_ERROR = '_security.last_error';
@@ -32,10 +34,7 @@ final class Security
         $this->container = $container;
     }
 
-    /**
-     * @return UserInterface|null
-     */
-    public function getUser()
+    public function getUser(): ?UserInterface
     {
         if (!$token = $this->getToken()) {
             return null;
@@ -47,8 +46,7 @@ final class Security
         }
 
         if (!$user instanceof UserInterface) {
-            @trigger_error(sprintf('Accessing the user object "%s" that is not an instance of "%s" from "%s()" is deprecated since Symfony 4.2, use "getToken()->getUser()" instead.', \get_class($user), UserInterface::class, __METHOD__), E_USER_DEPRECATED);
-            //return null; // 5.0 behavior
+            return null;
         }
 
         return $user;
@@ -59,19 +57,14 @@ final class Security
      *
      * @param mixed $attributes
      * @param mixed $subject
-     *
-     * @return bool
      */
-    public function isGranted($attributes, $subject = null)
+    public function isGranted($attributes, $subject = null): bool
     {
         return $this->container->get('security.authorization_checker')
             ->isGranted($attributes, $subject);
     }
 
-    /**
-     * @return TokenInterface|null
-     */
-    public function getToken()
+    public function getToken(): ?TokenInterface
     {
         return $this->container->get('security.token_storage')->getToken();
     }

@@ -55,21 +55,20 @@ class NoTemplatingEntryKernel extends Kernel
 {
     public function registerBundles()
     {
-        return array(new FrameworkBundle(), new TwigBundle());
+        return [new FrameworkBundle(), new TwigBundle()];
     }
 
     public function registerContainerConfiguration(LoaderInterface $loader)
     {
         $loader->load(function ($container) {
             $container
-                ->loadFromExtension('framework', array(
+                ->loadFromExtension('framework', [
                     'secret' => '$ecret',
-                    'form' => array('enabled' => false),
-                ))
-                ->loadFromExtension('twig', array(
-                    'strict_variables' => false, // to be removed in 5.0 relying on default
+                    'form' => ['enabled' => false],
+                ])
+                ->loadFromExtension('twig', [
                     'default_path' => __DIR__.'/templates',
-                ))
+                ])
             ;
         });
     }

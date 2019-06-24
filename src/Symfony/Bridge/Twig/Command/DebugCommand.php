@@ -13,13 +13,16 @@ namespace Symfony\Bridge\Twig\Command;
 
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Exception\InvalidArgumentException;
+use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Finder\Finder;
+use Symfony\Component\HttpKernel\Debug\FileLinkFormatter;
 use Twig\Environment;
+use Twig\Loader\ChainLoader;
 use Twig\Loader\FilesystemLoader;
 
 /**
@@ -35,9 +38,10 @@ class DebugCommand extends Command
     private $projectDir;
     private $bundlesMetadata;
     private $twigDefaultPath;
-    private $rootDir;
+    private $filesystemLoaders;
+    private $fileLinkFormatter;
 
-    public function __construct(Environment $twig, string $projectDir = null, array $bundlesMetadata = array(), string $twigDefaultPath = null, string $rootDir = null)
+    public function __construct(Environment $twig, string $projectDir = null, array $bundlesMetadata = [], string $twigDefaultPath = null, FileLinkFormatter $fileLinkFormatter = null)
     {
         parent::__construct();
 
@@ -45,17 +49,17 @@ class DebugCommand extends Command
         $this->projectDir = $projectDir;
         $this->bundlesMetadata = $bundlesMetadata;
         $this->twigDefaultPath = $twigDefaultPath;
-        $this->rootDir = $rootDir;
+        $this->fileLinkFormatter = $fileLinkFormatter;
     }
 
     protected function configure()
     {
         $this
-            ->setDefinition(array(
+            ->setDefinition([
                 new InputArgument('name', InputArgument::OPTIONAL, 'The template name'),
                 new InputOption('filter', null, InputOption::VALUE_REQUIRED, 'Show details for all entries matching this filter'),
                 new InputOption('format', null, InputOption::VALUE_REQUIRED, 'The output format (text or json)', 'text'),
-            ))
+            ])
             ->setDescription('Shows a list of twig functions, filters, globals and tests')
             ->setHelp(<<<'EOF'
 The <info>%command.name%</info> command outputs a list of twig functions,
@@ -87,7 +91,7 @@ EOF
         $name = $input->getArgument('name');
         $filter = $input->getOption('filter');
 
-        if (null !== $name && !$this->twig->getLoader() instanceof FilesystemLoader) {
+        if (null !== $name && [] === $this->getFilesystemLoaders()) {
             throw new InvalidArgumentException(sprintf('Argument "name" not supported, it requires the Twig loader "%s"', FilesystemLoader::class));
         }
 
@@ -103,23 +107,35 @@ EOF
 
     private function displayPathsText(SymfonyStyle $io, string $name)
     {
-        $files = $this->findTemplateFiles($name);
+        $file = new \ArrayIterator($this->findTemplateFiles($name));
         $paths = $this->getLoaderPaths($name);
 
         $io->section('Matched File');
-        if ($files) {
-            $io->success(array_shift($files));
+        if ($file->valid()) {
+            if ($fileLink = $this->getFileLink($file->key())) {
+                $io->block($file->current(), 'OK', sprintf('fg=black;bg=green;href=%s', $fileLink), ' ', true);
+            } else {
+                $io->success($file->current());
+            }
+            $file->next();
 
-            if ($files) {
+            if ($file->valid()) {
                 $io->section('Overridden Files');
-                $io->listing($files);
+                do {
+                    if ($fileLink = $this->getFileLink($file->key())) {
+                        $io->text(sprintf('* <href=%s>%s</>', $fileLink, $file->current()));
+                    } else {
+                        $io->text(sprintf('* %s', $file->current()));
+                    }
+                    $file->next();
+                } while ($file->valid());
             }
         } else {
-            $alternatives = array();
+            $alternatives = [];
 
             if ($paths) {
-                $shortnames = array();
-                $dirs = array();
+                $shortnames = [];
+                $dirs = [];
                 foreach (current($paths) as $path) {
                     $dirs[] = $this->isAbsolutePath($path) ? $path : $this->projectDir.'/'.$path;
                 }
@@ -141,25 +157,27 @@ EOF
 
         $io->section('Configured Paths');
         if ($paths) {
-            $io->table(array('Namespace', 'Paths'), $this->buildTableRows($paths));
+            $io->table(['Namespace', 'Paths'], $this->buildTableRows($paths));
         } else {
-            $alternatives = array();
+            $alternatives = [];
             $namespace = $this->parseTemplateName($name)[0];
 
             if (FilesystemLoader::MAIN_NAMESPACE === $namespace) {
                 $message = 'No template paths configured for your application';
             } else {
                 $message = sprintf('No template paths configured for "@%s" namespace', $namespace);
-                $namespaces = $this->twig->getLoader()->getNamespaces();
-                foreach ($this->findAlternatives($namespace, $namespaces) as $namespace) {
-                    $alternatives[] = '@'.$namespace;
+                foreach ($this->getFilesystemLoaders() as $loader) {
+                    $namespaces = $loader->getNamespaces();
+                    foreach ($this->findAlternatives($namespace, $namespaces) as $namespace) {
+                        $alternatives[] = '@'.$namespace;
+                    }
                 }
             }
 
             $this->error($io, $message, $alternatives);
 
             if (!$alternatives && $paths = $this->getLoaderPaths()) {
-                $io->table(array('Namespace', 'Paths'), $this->buildTableRows($paths));
+                $io->table(['Namespace', 'Paths'], $this->buildTableRows($paths));
             }
         }
     }
@@ -184,12 +202,13 @@ EOF
 
     private function displayGeneralText(SymfonyStyle $io, string $filter = null)
     {
-        $types = array('functions', 'filters', 'tests', 'globals');
+        $decorated = $io->isDecorated();
+        $types = ['functions', 'filters', 'tests', 'globals'];
         foreach ($types as $index => $type) {
-            $items = array();
+            $items = [];
             foreach ($this->twig->{'get'.ucfirst($type)}() as $name => $entity) {
                 if (!$filter || false !== strpos($name, $filter)) {
-                    $items[$name] = $name.$this->getPrettyMetadata($type, $entity);
+                    $items[$name] = $name.$this->getPrettyMetadata($type, $entity, $decorated);
                 }
             }
 
@@ -205,11 +224,11 @@ EOF
 
         if (!$filter && $paths = $this->getLoaderPaths()) {
             $io->section('Loader Paths');
-            $io->table(array('Namespace', 'Paths'), $this->buildTableRows($paths));
+            $io->table(['Namespace', 'Paths'], $this->buildTableRows($paths));
         }
 
-        if ($wronBundles = $this->findWrongBundleOverrides()) {
-            foreach ($this->buildWarningMessages($wronBundles) as $message) {
+        if ($wrongBundles = $this->findWrongBundleOverrides()) {
+            foreach ($this->buildWarningMessages($wrongBundles) as $message) {
                 $io->warning($message);
             }
         }
@@ -217,8 +236,9 @@ EOF
 
     private function displayGeneralJson(SymfonyStyle $io, $filter)
     {
-        $types = array('functions', 'filters', 'tests', 'globals');
-        $data = array();
+        $decorated = $io->isDecorated();
+        $types = ['functions', 'filters', 'tests', 'globals'];
+        $data = [];
         foreach ($types as $type) {
             foreach ($this->twig->{'get'.ucfirst($type)}() as $name => $entity) {
                 if (!$filter || false !== strpos($name, $filter)) {
@@ -234,40 +254,35 @@ EOF
             $data['loader_paths'] = $paths;
         }
 
-        if ($wronBundles = $this->findWrongBundleOverrides()) {
-            $data['warnings'] = $this->buildWarningMessages($wronBundles);
+        if ($wrongBundles = $this->findWrongBundleOverrides()) {
+            $data['warnings'] = $this->buildWarningMessages($wrongBundles);
         }
 
-        $io->writeln(json_encode($data));
+        $data = json_encode($data, JSON_PRETTY_PRINT);
+        $io->writeln($decorated ? OutputFormatter::escape($data) : $data);
     }
 
     private function getLoaderPaths(string $name = null): array
     {
-        /** @var FilesystemLoader $loader */
-        $loader = $this->twig->getLoader();
-        $loaderPaths = array();
-        $namespaces = $loader->getNamespaces();
-        if (null !== $name) {
-            $namespace = $this->parseTemplateName($name)[0];
-            $namespaces = array_intersect(array($namespace), $namespaces);
-        }
-
-        foreach ($namespaces as $namespace) {
-            $paths = array_map(function ($path) {
-                if (null !== $this->projectDir && 0 === strpos($path, $this->projectDir)) {
-                    $path = ltrim(substr($path, \strlen($this->projectDir)), \DIRECTORY_SEPARATOR);
-                }
-
-                return $path;
-            }, $loader->getPaths($namespace));
-
-            if (FilesystemLoader::MAIN_NAMESPACE === $namespace) {
-                $namespace = '(None)';
-            } else {
-                $namespace = '@'.$namespace;
+        $loaderPaths = [];
+        foreach ($this->getFilesystemLoaders() as $loader) {
+            $namespaces = $loader->getNamespaces();
+            if (null !== $name) {
+                $namespace = $this->parseTemplateName($name)[0];
+                $namespaces = array_intersect([$namespace], $namespaces);
             }
 
-            $loaderPaths[$namespace] = $paths;
+            foreach ($namespaces as $namespace) {
+                $paths = array_map([$this, 'getRelativePath'], $loader->getPaths($namespace));
+
+                if (FilesystemLoader::MAIN_NAMESPACE === $namespace) {
+                    $namespace = '(None)';
+                } else {
+                    $namespace = '@'.$namespace;
+                }
+
+                $loaderPaths[$namespace] = array_merge($loaderPaths[$namespace] ?? [], $paths);
+            }
         }
 
         return $loaderPaths;
@@ -329,7 +344,7 @@ EOF
         }
     }
 
-    private function getPrettyMetadata($type, $entity)
+    private function getPrettyMetadata($type, $entity, $decorated)
     {
         if ('tests' === $type) {
             return '';
@@ -341,7 +356,7 @@ EOF
                 return '(unknown?)';
             }
         } catch (\UnexpectedValueException $e) {
-            return ' <error>'.$e->getMessage().'</error>';
+            return sprintf(' <error>%s</error>', $decorated ? OutputFormatter::escape($e->getMessage()) : $e->getMessage());
         }
 
         if ('globals' === $type) {
@@ -349,7 +364,9 @@ EOF
                 return ' = object('.\get_class($meta).')';
             }
 
-            return ' = '.substr(@json_encode($meta), 0, 50);
+            $description = substr(@json_encode($meta), 0, 50);
+
+            return sprintf(' = %s', $decorated ? OutputFormatter::escape($description) : $description);
         }
 
         if ('functions' === $type) {
@@ -363,58 +380,27 @@ EOF
 
     private function findWrongBundleOverrides(): array
     {
-        $alternatives = array();
-        $bundleNames = array();
-
-        if ($this->rootDir && $this->projectDir) {
-            $folders = glob($this->rootDir.'/Resources/*/views', GLOB_ONLYDIR);
-            $relativePath = ltrim(substr($this->rootDir.'/Resources/', \strlen($this->projectDir)), \DIRECTORY_SEPARATOR);
-            $bundleNames = array_reduce(
-                $folders,
-                function ($carry, $absolutePath) use ($relativePath) {
-                    if (0 === strpos($absolutePath, $this->projectDir)) {
-                        $name = basename(\dirname($absolutePath));
-                        $path = $relativePath.$name;
-                        $carry[$name] = $path;
-                    }
-
-                    return $carry;
-                },
-                $bundleNames
-            );
-        }
+        $alternatives = [];
+        $bundleNames = [];
 
         if ($this->twigDefaultPath && $this->projectDir) {
             $folders = glob($this->twigDefaultPath.'/bundles/*', GLOB_ONLYDIR);
-            $relativePath = ltrim(substr($this->twigDefaultPath.'/bundles', \strlen($this->projectDir)), \DIRECTORY_SEPARATOR);
-            $bundleNames = array_reduce(
-                $folders,
-                function ($carry, $absolutePath) use ($relativePath) {
-                    if (0 === strpos($absolutePath, $this->projectDir)) {
-                        $path = ltrim(substr($absolutePath, \strlen($this->projectDir)), \DIRECTORY_SEPARATOR);
-                        $name = ltrim(substr($path, \strlen($relativePath)), \DIRECTORY_SEPARATOR);
-                        $carry[$name] = $path;
-                    }
+            $relativePath = ltrim(substr($this->twigDefaultPath.'/bundles/', \strlen($this->projectDir)), \DIRECTORY_SEPARATOR);
+            $bundleNames = array_reduce($folders, function ($carry, $absolutePath) use ($relativePath) {
+                if (0 === strpos($absolutePath, $this->projectDir)) {
+                    $name = basename($absolutePath);
+                    $path = ltrim($relativePath.$name, \DIRECTORY_SEPARATOR);
+                    $carry[$name] = $path;
+                }
 
-                    return $carry;
-                },
-                $bundleNames
-            );
+                return $carry;
+            }, $bundleNames);
         }
 
-        if (\count($bundleNames)) {
-            $notFoundBundles = array_diff_key($bundleNames, $this->bundlesMetadata);
-            if (\count($notFoundBundles)) {
-                $alternatives = array();
-                foreach ($notFoundBundles as $notFoundBundle => $path) {
-                    $alternatives[$path] = array();
-                    foreach ($this->bundlesMetadata as $name => $bundle) {
-                        $lev = levenshtein($notFoundBundle, $name);
-                        if ($lev <= \strlen($notFoundBundle) / 3 || false !== strpos($name, $notFoundBundle)) {
-                            $alternatives[$path][] = $name;
-                        }
-                    }
-                }
+        if ($notFoundBundles = array_diff_key($bundleNames, $this->bundlesMetadata)) {
+            $alternatives = [];
+            foreach ($notFoundBundles as $notFoundBundle => $path) {
+                $alternatives[$path] = $this->findAlternatives($notFoundBundle, array_keys($this->bundlesMetadata));
             }
         }
 
@@ -423,7 +409,7 @@ EOF
 
     private function buildWarningMessages(array $wrongBundles): array
     {
-        $messages = array();
+        $messages = [];
         foreach ($wrongBundles as $path => $alternatives) {
             $message = sprintf('Path "%s" not matching any bundle found', $path);
             if ($alternatives) {
@@ -442,7 +428,7 @@ EOF
         return $messages;
     }
 
-    private function error(SymfonyStyle $io, string $message, array $alternatives = array()): void
+    private function error(SymfonyStyle $io, string $message, array $alternatives = []): void
     {
         if ($alternatives) {
             if (1 === \count($alternatives)) {
@@ -458,22 +444,22 @@ EOF
 
     private function findTemplateFiles(string $name): array
     {
-        /** @var FilesystemLoader $loader */
-        $loader = $this->twig->getLoader();
-        $files = array();
         list($namespace, $shortname) = $this->parseTemplateName($name);
 
-        foreach ($loader->getPaths($namespace) as $path) {
-            if (!$this->isAbsolutePath($path)) {
-                $path = $this->projectDir.'/'.$path;
-            }
-            $filename = $path.'/'.$shortname;
+        $files = [];
+        foreach ($this->getFilesystemLoaders() as $loader) {
+            foreach ($loader->getPaths($namespace) as $path) {
+                if (!$this->isAbsolutePath($path)) {
+                    $path = $this->projectDir.'/'.$path;
+                }
+                $filename = $path.'/'.$shortname;
 
-            if (is_file($filename)) {
-                if (false !== $realpath = realpath($filename)) {
-                    $files[] = $this->getRelativePath($realpath);
-                } else {
-                    $files[] = $this->getRelativePath($filename);
+                if (is_file($filename)) {
+                    if (false !== $realpath = realpath($filename)) {
+                        $files[$realpath] = $this->getRelativePath($realpath);
+                    } else {
+                        $files[$filename] = $this->getRelativePath($filename);
+                    }
                 }
             }
         }
@@ -491,29 +477,29 @@ EOF
             $namespace = substr($name, 1, $pos - 1);
             $shortname = substr($name, $pos + 1);
 
-            return array($namespace, $shortname);
+            return [$namespace, $shortname];
         }
 
-        return array($default, $name);
+        return [$default, $name];
     }
 
     private function buildTableRows(array $loaderPaths): array
     {
-        $rows = array();
+        $rows = [];
         $firstNamespace = true;
         $prevHasSeparator = false;
 
         foreach ($loaderPaths as $namespace => $paths) {
             if (!$firstNamespace && !$prevHasSeparator && \count($paths) > 1) {
-                $rows[] = array('', '');
+                $rows[] = ['', ''];
             }
             $firstNamespace = false;
             foreach ($paths as $path) {
-                $rows[] = array($namespace, $path.\DIRECTORY_SEPARATOR);
+                $rows[] = [$namespace, $path.\DIRECTORY_SEPARATOR];
                 $namespace = '';
             }
             if (\count($paths) > 1) {
-                $rows[] = array('', '');
+                $rows[] = ['', ''];
                 $prevHasSeparator = true;
             } else {
                 $prevHasSeparator = false;
@@ -528,7 +514,7 @@ EOF
 
     private function findAlternatives(string $name, array $collection): array
     {
-        $alternatives = array();
+        $alternatives = [];
         foreach ($collection as $item) {
             $lev = levenshtein($name, $item);
             if ($lev <= \strlen($name) / 3 || false !== strpos($item, $name)) {
@@ -555,5 +541,38 @@ EOF
     private function isAbsolutePath(string $file): bool
     {
         return strspn($file, '/\\', 0, 1) || (\strlen($file) > 3 && ctype_alpha($file[0]) && ':' === $file[1] && strspn($file, '/\\', 2, 1)) || null !== parse_url($file, PHP_URL_SCHEME);
+    }
+
+    /**
+     * @return FilesystemLoader[]
+     */
+    private function getFilesystemLoaders(): array
+    {
+        if (null !== $this->filesystemLoaders) {
+            return $this->filesystemLoaders;
+        }
+        $this->filesystemLoaders = [];
+
+        $loader = $this->twig->getLoader();
+        if ($loader instanceof FilesystemLoader) {
+            $this->filesystemLoaders[] = $loader;
+        } elseif ($loader instanceof ChainLoader) {
+            foreach ($loader->getLoaders() as $l) {
+                if ($l instanceof FilesystemLoader) {
+                    $this->filesystemLoaders[] = $l;
+                }
+            }
+        }
+
+        return $this->filesystemLoaders;
+    }
+
+    private function getFileLink(string $absolutePath): string
+    {
+        if (null === $this->fileLinkFormatter) {
+            return '';
+        }
+
+        return (string) $this->fileLinkFormatter->format($absolutePath, 1);
     }
 }

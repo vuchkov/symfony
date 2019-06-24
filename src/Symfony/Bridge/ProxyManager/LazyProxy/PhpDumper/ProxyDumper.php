@@ -40,7 +40,7 @@ class ProxyDumper implements DumperInterface
     /**
      * {@inheritdoc}
      */
-    public function isProxyCandidate(Definition $definition)
+    public function isProxyCandidate(Definition $definition): bool
     {
         return ($definition->isLazy() || $definition->hasTag('proxy')) && $this->proxyGenerator->getProxifiedClass($definition);
     }
@@ -48,12 +48,12 @@ class ProxyDumper implements DumperInterface
     /**
      * {@inheritdoc}
      */
-    public function getProxyFactoryCode(Definition $definition, $id, $factoryCode = null)
+    public function getProxyFactoryCode(Definition $definition, $id, $factoryCode = null): string
     {
         $instantiation = 'return';
 
         if ($definition->isShared()) {
-            $instantiation .= sprintf(' $this->%s[\'%s\'] =', $definition->isPublic() && !$definition->isPrivate() ? 'services' : 'privates', $id);
+            $instantiation .= sprintf(' $this->%s[%s] =', $definition->isPublic() && !$definition->isPrivate() ? 'services' : 'privates', var_export($id, true));
         }
 
         if (null === $factoryCode) {
@@ -82,7 +82,7 @@ EOF;
     /**
      * {@inheritdoc}
      */
-    public function getProxyCode(Definition $definition)
+    public function getProxyCode(Definition $definition): string
     {
         $code = $this->classGenerator->generate($this->generateProxyClass($definition));
 
@@ -99,7 +99,7 @@ EOF;
 
     private static function getProxyManagerVersion(): string
     {
-        if (!\class_exists(Version::class)) {
+        if (!class_exists(Version::class)) {
             return '0.0.1';
         }
 

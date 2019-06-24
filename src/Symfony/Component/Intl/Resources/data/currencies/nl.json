@@ -1,5 +1,5 @@
 {
-    "Version": "2.1.41.97",
+    "Version": "2.1.49.82",
     "Names": {
         "ADP": [
             "ADP",
@@ -1033,6 +1033,10 @@
             "UYU",
             "Uruguayaanse peso"
         ],
+        "UYW": [
+            "UYW",
+            "Uruguayaanse nominale salarisindexeenheid"
+        ],
         "UZS": [
             "UZS",
             "Oezbeekse sum"
@@ -1043,6 +1047,10 @@
         ],
         "VEF": [
             "VEF",
+            "Venezolaanse bolivar (2008–2018)"
+        ],
+        "VES": [
+            "VES",
             "Venezolaanse bolivar"
         ],
         "VND": [

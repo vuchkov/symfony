@@ -14,7 +14,7 @@ namespace Symfony\Component\Messenger\Stamp;
 use Symfony\Component\Messenger\Middleware\SendMessageMiddleware;
 
 /**
- * Marker config for a received message.
+ * Marker stamp for a received message.
  *
  * This is mainly used by the `SendMessageMiddleware` middleware to identify
  * a message should not be sent if it was just received.
@@ -22,7 +22,20 @@ use Symfony\Component\Messenger\Middleware\SendMessageMiddleware;
  * @see SendMessageMiddleware
  *
  * @author Samuel Roze <samuel.roze@gmail.com>
+ *
+ * @experimental in 4.3
  */
 final class ReceivedStamp implements StampInterface
 {
+    private $transportName;
+
+    public function __construct(string $transportName)
+    {
+        $this->transportName = $transportName;
+    }
+
+    public function getTransportName(): string
+    {
+        return $this->transportName;
+    }
 }

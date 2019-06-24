@@ -36,7 +36,7 @@ abstract class AbstractExtension implements FormExtensionInterface
     /**
      * The type guesser provided by this extension.
      *
-     * @var FormTypeGuesserInterface
+     * @var FormTypeGuesserInterface|null
      */
     private $typeGuesser;
 
@@ -86,7 +86,7 @@ abstract class AbstractExtension implements FormExtensionInterface
 
         return isset($this->typeExtensions[$name])
             ? $this->typeExtensions[$name]
-            : array();
+            : [];
     }
 
     /**
@@ -120,7 +120,7 @@ abstract class AbstractExtension implements FormExtensionInterface
      */
     protected function loadTypes()
     {
-        return array();
+        return [];
     }
 
     /**
@@ -130,13 +130,13 @@ abstract class AbstractExtension implements FormExtensionInterface
      */
     protected function loadTypeExtensions()
     {
-        return array();
+        return [];
     }
 
     /**
      * Registers the type guesser.
      *
-     * @return FormTypeGuesserInterface|null A type guesser
+     * @return FormTypeGuesserInterface|null
      */
     protected function loadTypeGuesser()
     {
@@ -149,7 +149,7 @@ abstract class AbstractExtension implements FormExtensionInterface
      */
     private function initTypes()
     {
-        $this->types = array();
+        $this->types = [];
 
         foreach ($this->loadTypes() as $type) {
             if (!$type instanceof FormTypeInterface) {
@@ -168,26 +168,14 @@ abstract class AbstractExtension implements FormExtensionInterface
      */
     private function initTypeExtensions()
     {
-        $this->typeExtensions = array();
+        $this->typeExtensions = [];
 
         foreach ($this->loadTypeExtensions() as $extension) {
             if (!$extension instanceof FormTypeExtensionInterface) {
                 throw new UnexpectedTypeException($extension, 'Symfony\Component\Form\FormTypeExtensionInterface');
             }
 
-            if (method_exists($extension, 'getExtendedTypes')) {
-                $extendedTypes = array();
-
-                foreach ($extension::getExtendedTypes() as $extendedType) {
-                    $extendedTypes[] = $extendedType;
-                }
-            } else {
-                @trigger_error(sprintf('Not implementing the static getExtendedTypes() method in %s when implementing the %s is deprecated since Symfony 4.2. The method will be added to the interface in 5.0.', \get_class($extension), FormTypeExtensionInterface::class), E_USER_DEPRECATED);
-
-                $extendedTypes = array($extension->getExtendedType());
-            }
-
-            foreach ($extendedTypes as $extendedType) {
+            foreach ($extension::getExtendedTypes() as $extendedType) {
                 $this->typeExtensions[$extendedType][] = $extension;
             }
         }

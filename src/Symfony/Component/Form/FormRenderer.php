@@ -27,9 +27,9 @@ class FormRenderer implements FormRendererInterface
 
     private $engine;
     private $csrfTokenManager;
-    private $blockNameHierarchyMap = array();
-    private $hierarchyLevelMap = array();
-    private $variableStack = array();
+    private $blockNameHierarchyMap = [];
+    private $hierarchyLevelMap = [];
+    private $variableStack = [];
 
     public function __construct(FormRendererEngineInterface $engine, CsrfTokenManagerInterface $csrfTokenManager = null)
     {
@@ -68,7 +68,7 @@ class FormRenderer implements FormRendererInterface
     /**
      * {@inheritdoc}
      */
-    public function renderBlock(FormView $view, $blockName, array $variables = array())
+    public function renderBlock(FormView $view, $blockName, array $variables = [])
     {
         $resource = $this->engine->getResourceForBlockName($view, $blockName);
 
@@ -81,7 +81,7 @@ class FormRenderer implements FormRendererInterface
         // The variables are cached globally for a view (instead of for the
         // current suffix)
         if (!isset($this->variableStack[$viewCacheKey])) {
-            $this->variableStack[$viewCacheKey] = array();
+            $this->variableStack[$viewCacheKey] = [];
 
             // The default variable scope contains all view variables, merged with
             // the variables passed explicitly to the helper
@@ -127,15 +127,13 @@ class FormRenderer implements FormRendererInterface
     /**
      * {@inheritdoc}
      */
-    public function searchAndRenderBlock(FormView $view, $blockNameSuffix, array $variables = array())
+    public function searchAndRenderBlock(FormView $view, $blockNameSuffix, array $variables = [])
     {
         $renderOnlyOnce = 'row' === $blockNameSuffix || 'widget' === $blockNameSuffix;
 
         if ($renderOnlyOnce && $view->isRendered()) {
             // This is not allowed, because it would result in rendering same IDs multiple times, which is not valid.
-            @trigger_error(sprintf('You are calling "form_%s" for field "%s" which has already been rendered before, trying to render fields which were already rendered is deprecated since Symfony 4.2 and will throw an exception in 5.0.', $blockNameSuffix, $view->vars['name']), E_USER_DEPRECATED);
-            // throw new BadMethodCallException(sprintf('Field "%s" has already been rendered. Save result of previous  render call to variable and output that instead.', $view->vars['name']));
-            return '';
+            throw new BadMethodCallException(sprintf('Field "%s" has already been rendered, save the result of previous render call to a variable and output that instead.', $view->vars['name']));
         }
 
         // The cache key for storing the variables and types
@@ -163,9 +161,9 @@ class FormRenderer implements FormRendererInterface
         // to implement a custom "choice_widget" block (no matter in which theme),
         // or to fallback to the block of the parent type, which would be
         // "form_widget" in this example (again, no matter in which theme).
-        // If the designer wants to explicitly fallback to "form_widget" in his
-        // custom "choice_widget", for example because he only wants to wrap
-        // a <div> around the original implementation, he can simply call the
+        // If the designer wants to explicitly fallback to "form_widget" in their
+        // custom "choice_widget", for example because they only want to wrap
+        // a <div> around the original implementation, they can call the
         // widget() function again to render the block for the parent type.
         //
         // The second kind is implemented in the following blocks.
@@ -173,7 +171,7 @@ class FormRenderer implements FormRendererInterface
             // INITIAL CALL
             // Calculate the hierarchy of template blocks and start on
             // the bottom level of the hierarchy (= "_<id>_<section>" block)
-            $blockNameHierarchy = array();
+            $blockNameHierarchy = [];
             foreach ($view->vars['block_prefixes'] as $blockNamePrefix) {
                 $blockNameHierarchy[] = $blockNamePrefix.'_'.$blockNameSuffix;
             }
@@ -193,7 +191,7 @@ class FormRenderer implements FormRendererInterface
         // The variables are cached globally for a view (instead of for the
         // current suffix)
         if (!isset($this->variableStack[$viewCacheKey])) {
-            $this->variableStack[$viewCacheKey] = array();
+            $this->variableStack[$viewCacheKey] = [];
 
             // The default variable scope contains all view variables, merged with
             // the variables passed explicitly to the helper
@@ -284,7 +282,7 @@ class FormRenderer implements FormRendererInterface
      */
     public function humanize($text)
     {
-        return ucfirst(strtolower(trim(preg_replace(array('/([A-Z])/', '/[_\s]+/'), array('_$1', ' '), $text))));
+        return ucfirst(strtolower(trim(preg_replace(['/([A-Z])/', '/[_\s]+/'], ['_$1', ' '], $text))));
     }
 
     /**

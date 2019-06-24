@@ -20,9 +20,9 @@ use Symfony\Component\DependencyInjection\Exception\RuntimeException;
 class EnvPlaceholderParameterBag extends ParameterBag
 {
     private $envPlaceholderUniquePrefix;
-    private $envPlaceholders = array();
-    private $unusedEnvPlaceholders = array();
-    private $providedTypes = array();
+    private $envPlaceholders = [];
+    private $unusedEnvPlaceholders = [];
+    private $providedTypes = [];
 
     /**
      * {@inheritdoc}
@@ -42,16 +42,11 @@ class EnvPlaceholderParameterBag extends ParameterBag
                     return $placeholder; // return first result
                 }
             }
-            if (!preg_match('/^(?:\w++:)*+\w++$/', $env)) {
+            if (!preg_match('/^(?:\w*+:)*+\w++$/', $env)) {
                 throw new InvalidArgumentException(sprintf('Invalid %s name: only "word" characters are allowed.', $name));
             }
-
-            if ($this->has($name)) {
-                $defaultValue = parent::get($name);
-
-                if (null !== $defaultValue && !is_scalar($defaultValue)) {
-                    throw new RuntimeException(sprintf('The default value of an env() parameter must be scalar or null, but "%s" given to "%s".', \gettype($defaultValue), $name));
-                }
+            if ($this->has($name) && null !== ($defaultValue = parent::get($name)) && !\is_string($defaultValue)) {
+                throw new RuntimeException(sprintf('The default value of an env() parameter must be a string or null, but "%s" given to "%s".', \gettype($defaultValue), $name));
             }
 
             $uniqueName = md5($name.uniqid(mt_rand(), true));
@@ -89,7 +84,7 @@ class EnvPlaceholderParameterBag extends ParameterBag
 
     public function clearUnusedEnvPlaceholders()
     {
-        $this->unusedEnvPlaceholders = array();
+        $this->unusedEnvPlaceholders = [];
     }
 
     /**
@@ -143,13 +138,8 @@ class EnvPlaceholderParameterBag extends ParameterBag
         parent::resolve();
 
         foreach ($this->envPlaceholders as $env => $placeholders) {
-            if (!$this->has($name = "env($env)")) {
-                continue;
-            }
-            if (is_numeric($default = $this->parameters[$name])) {
-                $this->parameters[$name] = (string) $default;
-            } elseif (null !== $default && !is_scalar($default)) {
-                throw new RuntimeException(sprintf('The default value of env parameter "%s" must be scalar or null, %s given.', $env, \gettype($default)));
+            if ($this->has($name = "env($env)") && null !== ($default = $this->parameters[$name]) && !\is_string($default)) {
+                throw new RuntimeException(sprintf('The default value of env parameter "%s" must be a string or null, %s given.', $env, \gettype($default)));
             }
         }
     }

@@ -13,6 +13,7 @@ namespace Symfony\Bridge\Twig\Extension;
 
 use Symfony\Component\Workflow\Registry;
 use Symfony\Component\Workflow\Transition;
+use Symfony\Component\Workflow\TransitionBlockerList;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
 
@@ -32,13 +33,14 @@ class WorkflowExtension extends AbstractExtension
 
     public function getFunctions()
     {
-        return array(
-            new TwigFunction('workflow_can', array($this, 'canTransition')),
-            new TwigFunction('workflow_transitions', array($this, 'getEnabledTransitions')),
-            new TwigFunction('workflow_has_marked_place', array($this, 'hasMarkedPlace')),
-            new TwigFunction('workflow_marked_places', array($this, 'getMarkedPlaces')),
-            new TwigFunction('workflow_metadata', array($this, 'getMetadata')),
-        );
+        return [
+            new TwigFunction('workflow_can', [$this, 'canTransition']),
+            new TwigFunction('workflow_transitions', [$this, 'getEnabledTransitions']),
+            new TwigFunction('workflow_has_marked_place', [$this, 'hasMarkedPlace']),
+            new TwigFunction('workflow_marked_places', [$this, 'getMarkedPlaces']),
+            new TwigFunction('workflow_metadata', [$this, 'getMetadata']),
+            new TwigFunction('workflow_transition_blockers', [$this, 'buildTransitionBlockerList']),
+        ];
     }
 
     /**
@@ -118,6 +120,13 @@ class WorkflowExtension extends AbstractExtension
             ->getMetadataStore()
             ->getMetadata($key, $metadataSubject)
         ;
+    }
+
+    public function buildTransitionBlockerList($subject, string $transitionName, string $name = null): TransitionBlockerList
+    {
+        $workflow = $this->workflowRegistry->get($subject, $name);
+
+        return $workflow->buildTransitionBlockerList($subject, $transitionName);
     }
 
     public function getName()

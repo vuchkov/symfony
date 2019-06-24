@@ -129,12 +129,12 @@ class AuthenticationTrustResolverTest extends TestCase
 
     protected function getAnonymousToken()
     {
-        return $this->getMockBuilder('Symfony\Component\Security\Core\Authentication\Token\AnonymousToken')->setConstructorArgs(array('', ''))->getMock();
+        return $this->getMockBuilder('Symfony\Component\Security\Core\Authentication\Token\AnonymousToken')->setConstructorArgs(['', ''])->getMock();
     }
 
     protected function getRememberMeToken()
     {
-        return $this->getMockBuilder('Symfony\Component\Security\Core\Authentication\Token\RememberMeToken')->setMethods(array('setPersistent'))->disableOriginalConstructor()->getMock();
+        return $this->getMockBuilder('Symfony\Component\Security\Core\Authentication\Token\RememberMeToken')->setMethods(['setPersistent'])->disableOriginalConstructor()->getMock();
     }
 
     protected function getResolver()
@@ -148,7 +148,15 @@ class AuthenticationTrustResolverTest extends TestCase
 
 class FakeCustomToken implements TokenInterface
 {
+    public function __serialize(): array
+    {
+    }
+
     public function serialize()
+    {
+    }
+
+    public function __unserialize(array $data): void
     {
     }
 
@@ -160,7 +168,7 @@ class FakeCustomToken implements TokenInterface
     {
     }
 
-    public function getRoles()
+    public function getRoleNames(): array
     {
     }
 

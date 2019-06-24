@@ -16,10 +16,10 @@ use Symfony\Component\Form\Guess\Guess;
 
 class FormTypeGuesserChain implements FormTypeGuesserInterface
 {
-    private $guessers = array();
+    private $guessers = [];
 
     /**
-     * @param FormTypeGuesserInterface[] $guessers Guessers as instances of FormTypeGuesserInterface
+     * @param FormTypeGuesserInterface[] $guessers
      *
      * @throws UnexpectedTypeException if any guesser does not implement FormTypeGuesserInterface
      */
@@ -89,7 +89,7 @@ class FormTypeGuesserChain implements FormTypeGuesserInterface
      */
     private function guess(\Closure $closure)
     {
-        $guesses = array();
+        $guesses = [];
 
         foreach ($this->guessers as $guesser) {
             if ($guess = $closure($guesser)) {

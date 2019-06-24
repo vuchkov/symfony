@@ -21,6 +21,14 @@ abstract class BasePasswordEncoder implements PasswordEncoderInterface
     const MAX_PASSWORD_LENGTH = 4096;
 
     /**
+     * {@inheritdoc}
+     */
+    public function needsRehash(string $encoded): bool
+    {
+        return false;
+    }
+
+    /**
      * Demerges a merge password and salt string.
      *
      * @param string $mergedPasswordSalt The merged password and salt string
@@ -30,7 +38,7 @@ abstract class BasePasswordEncoder implements PasswordEncoderInterface
     protected function demergePasswordAndSalt($mergedPasswordSalt)
     {
         if (empty($mergedPasswordSalt)) {
-            return array('', '');
+            return ['', ''];
         }
 
         $password = $mergedPasswordSalt;
@@ -42,14 +50,14 @@ abstract class BasePasswordEncoder implements PasswordEncoderInterface
             $password = substr($mergedPasswordSalt, 0, $saltBegins);
         }
 
-        return array($password, $salt);
+        return [$password, $salt];
     }
 
     /**
      * Merges a password and a salt.
      *
-     * @param string $password The password to be used
-     * @param string $salt     The salt to be used
+     * @param string      $password The password to be used
+     * @param string|null $salt     The salt to be used
      *
      * @return string a merged password and salt
      *

@@ -1,5 +1,5 @@
 {
-    "Version": "2.1.41.97",
+    "Version": "2.1.48.44",
     "Names": {
         "aa": "afarština",
         "ab": "abcházština",
@@ -26,11 +26,11 @@
         "ar": "arabština",
         "ar_001": "arabština (moderní standardní)",
         "arc": "aramejština",
-        "arn": "mapudungunština",
+        "arn": "mapudungun",
         "aro": "araonština",
         "arp": "arapažština",
         "arq": "arabština (alžírská)",
-        "ars": "arabština (nadžd)",
+        "ars": "arabština (Nadžd)",
         "arw": "arawacké jazyky",
         "ary": "arabština (marocká)",
         "arz": "arabština (egyptská)",
@@ -88,6 +88,7 @@
         "car": "karibština",
         "cay": "kajugština",
         "cch": "atsam",
+        "ccp": "čakma",
         "ce": "čečenština",
         "ceb": "cebuánština",
         "cgg": "kiga",

@@ -14,7 +14,7 @@ namespace Symfony\Contracts\Translation;
 use Symfony\Component\Translation\Exception\InvalidArgumentException;
 
 /**
- * A trait to help implement TranslatorInterface.
+ * A trait to help implement TranslatorInterface and LocaleAwareInterface.
  *
  * @author Fabien Potencier <fabien@symfony.com>
  */
@@ -41,7 +41,7 @@ trait TranslatorTrait
     /**
      * {@inheritdoc}
      */
-    public function trans($id, array $parameters = array(), $domain = null, $locale = null)
+    public function trans($id, array $parameters = [], $domain = null, $locale = null)
     {
         $id = (string) $id;
 
@@ -52,7 +52,7 @@ trait TranslatorTrait
         $number = (float) $parameters['%count%'];
         $locale = (string) $locale ?: $this->getLocale();
 
-        $parts = array();
+        $parts = [];
         if (preg_match('/^\|++$/', $id)) {
             $parts = explode('|', $id);
         } elseif (preg_match_all('/(?:\|\||[^\|])++/', $id, $matches)) {
@@ -77,7 +77,7 @@ trait TranslatorTrait
 )\s*(?P<message>.*?)$/xs
 EOF;
 
-        $standardRules = array();
+        $standardRules = [];
         foreach ($parts as $part) {
             $part = trim(str_replace('||', '|', $part));
 
@@ -91,7 +91,7 @@ EOF;
                     }
                 } else {
                     $leftNumber = '-Inf' === $matches['left'] ? -INF : (float) $matches['left'];
-                    $rightNumber = \is_numeric($matches['right']) ? (float) $matches['right'] : INF;
+                    $rightNumber = is_numeric($matches['right']) ? (float) $matches['right'] : INF;
 
                     if (('[' === $matches['left_delimiter'] ? $number >= $leftNumber : $number > $leftNumber)
                         && (']' === $matches['right_delimiter'] ? $number <= $rightNumber : $number < $rightNumber)
@@ -117,7 +117,7 @@ EOF;
 
             $message = sprintf('Unable to choose a translation for "%s" with locale "%s" for value "%d". Double check that this translation has the correct plural options (e.g. "There is one apple|There are %%count%% apples").', $id, $locale, $number);
 
-            if (\class_exists(InvalidArgumentException::class)) {
+            if (class_exists(InvalidArgumentException::class)) {
                 throw new InvalidArgumentException($message);
             }
 

@@ -48,13 +48,13 @@ final class VarExporter
         }
 
         $objectsPool = new \SplObjectStorage();
-        $refsPool = array();
+        $refsPool = [];
         $objectsCount = 0;
 
         try {
-            $value = Exporter::prepare(array($value), $objectsPool, $refsPool, $objectsCount, $isStaticValue)[0];
+            $value = Exporter::prepare([$value], $objectsPool, $refsPool, $objectsCount, $isStaticValue)[0];
         } finally {
-            $references = array();
+            $references = [];
             foreach ($refsPool as $i => $v) {
                 if ($v[0]->count) {
                     $references[1 + $i] = $v[2];
@@ -67,18 +67,34 @@ final class VarExporter
             return Exporter::export($value);
         }
 
-        $classes = array();
-        $values = array();
-        $wakeups = array();
+        $classes = [];
+        $values = [];
+        $states = [];
         foreach ($objectsPool as $i => $v) {
             list(, $classes[], $values[], $wakeup) = $objectsPool[$v];
-            if ($wakeup) {
-                $wakeups[$wakeup] = $i;
+            if (0 < $wakeup) {
+                $states[$wakeup] = $i;
+            } elseif (0 > $wakeup) {
+                $states[-$wakeup] = [$i, array_pop($values)];
+                $values[] = [];
             }
         }
-        ksort($wakeups);
+        ksort($states);
 
-        $properties = array();
+        $wakeups = [null];
+        foreach ($states as $k => $v) {
+            if (\is_array($v)) {
+                $wakeups[-$v[0]] = $v[1];
+            } else {
+                $wakeups[] = $v;
+            }
+        }
+
+        if (null === $wakeups[0]) {
+            unset($wakeups[0]);
+        }
+
+        $properties = [];
         foreach ($values as $i => $vars) {
             foreach ($vars as $class => $values) {
                 foreach ($values as $name => $v) {

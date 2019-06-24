@@ -12,9 +12,9 @@
 namespace Symfony\Bundle\FrameworkBundle\CacheWarmer;
 
 use Psr\Container\ContainerInterface;
-use Symfony\Component\DependencyInjection\ServiceSubscriberInterface;
 use Symfony\Component\HttpKernel\CacheWarmer\CacheWarmerInterface;
 use Symfony\Component\HttpKernel\CacheWarmer\WarmableInterface;
+use Symfony\Contracts\Service\ServiceSubscriberInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
@@ -60,8 +60,8 @@ class TranslationsCacheWarmer implements CacheWarmerInterface, ServiceSubscriber
      */
     public static function getSubscribedServices()
     {
-        return array(
+        return [
             'translator' => TranslatorInterface::class,
-        );
+        ];
     }
 }

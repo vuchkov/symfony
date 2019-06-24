@@ -21,11 +21,12 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
  */
 class UnusedTagsPass implements CompilerPassInterface
 {
-    private $whitelist = array(
+    private $whitelist = [
         'annotations.cached_reader',
         'cache.pool.clearer',
         'console.command',
         'container.hot_path',
+        'container.reversible',
         'container.service_locator',
         'container.service_subscriber',
         'controller.service_arguments',
@@ -39,10 +40,11 @@ class UnusedTagsPass implements CompilerPassInterface
         'kernel.event_listener',
         'kernel.event_subscriber',
         'kernel.fragment_renderer',
+        'kernel.locale_aware',
         'messenger.bus',
-        'messenger.sender',
         'messenger.receiver',
         'messenger.message_handler',
+        'mime.mime_type_guesser',
         'monolog.logger',
         'proxy',
         'routing.expression_language_provider',
@@ -52,7 +54,6 @@ class UnusedTagsPass implements CompilerPassInterface
         'security.voter',
         'serializer.encoder',
         'serializer.normalizer',
-        'templating.helper',
         'translation.dumper',
         'translation.extractor',
         'translation.loader',
@@ -60,7 +61,7 @@ class UnusedTagsPass implements CompilerPassInterface
         'twig.loader',
         'validator.constraint_validator',
         'validator.initializer',
-    );
+    ];
 
     public function process(ContainerBuilder $container)
     {
@@ -73,7 +74,7 @@ class UnusedTagsPass implements CompilerPassInterface
             }
 
             // check for typos
-            $candidates = array();
+            $candidates = [];
             foreach ($tags as $definedTag) {
                 if ($definedTag === $tag) {
                     continue;

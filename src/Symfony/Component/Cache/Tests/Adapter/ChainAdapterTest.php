@@ -27,10 +27,10 @@ class ChainAdapterTest extends AdapterTestCase
     public function createCachePool($defaultLifetime = 0, $testMethod = null)
     {
         if ('testGetMetadata' === $testMethod) {
-            return new ChainAdapter(array(new FilesystemAdapter('', $defaultLifetime)), $defaultLifetime);
+            return new ChainAdapter([new FilesystemAdapter('', $defaultLifetime)], $defaultLifetime);
         }
 
-        return new ChainAdapter(array(new ArrayAdapter($defaultLifetime), new ExternalAdapter(), new FilesystemAdapter('', $defaultLifetime)), $defaultLifetime);
+        return new ChainAdapter([new ArrayAdapter($defaultLifetime), new ExternalAdapter(), new FilesystemAdapter('', $defaultLifetime)], $defaultLifetime);
     }
 
     /**
@@ -39,7 +39,7 @@ class ChainAdapterTest extends AdapterTestCase
      */
     public function testEmptyAdaptersException()
     {
-        new ChainAdapter(array());
+        new ChainAdapter([]);
     }
 
     /**
@@ -48,7 +48,7 @@ class ChainAdapterTest extends AdapterTestCase
      */
     public function testInvalidAdapterException()
     {
-        new ChainAdapter(array(new \stdClass()));
+        new ChainAdapter([new \stdClass()]);
     }
 
     public function testPrune()
@@ -57,18 +57,18 @@ class ChainAdapterTest extends AdapterTestCase
             $this->markTestSkipped($this->skippedTests[__FUNCTION__]);
         }
 
-        $cache = new ChainAdapter(array(
+        $cache = new ChainAdapter([
             $this->getPruneableMock(),
             $this->getNonPruneableMock(),
             $this->getPruneableMock(),
-        ));
+        ]);
         $this->assertTrue($cache->prune());
 
-        $cache = new ChainAdapter(array(
+        $cache = new ChainAdapter([
             $this->getPruneableMock(),
             $this->getFailingPruneableMock(),
             $this->getPruneableMock(),
-        ));
+        ]);
         $this->assertFalse($cache->prune());
     }
 
@@ -84,7 +84,7 @@ class ChainAdapterTest extends AdapterTestCase
         $pruneable
             ->expects($this->atLeastOnce())
             ->method('prune')
-            ->will($this->returnValue(true));
+            ->willReturn(true);
 
         return $pruneable;
     }
@@ -101,7 +101,7 @@ class ChainAdapterTest extends AdapterTestCase
         $pruneable
             ->expects($this->atLeastOnce())
             ->method('prune')
-            ->will($this->returnValue(false));
+            ->willReturn(false);
 
         return $pruneable;
     }

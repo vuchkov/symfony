@@ -37,4 +37,9 @@ interface UserPasswordEncoderInterface
      * @return bool true if the password is valid, false otherwise
      */
     public function isPasswordValid(UserInterface $user, $raw);
+
+    /**
+     * Checks if an encoded password would benefit from rehashing.
+     */
+    public function needsRehash(UserInterface $user, string $encoded): bool;
 }

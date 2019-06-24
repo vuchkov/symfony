@@ -15,9 +15,9 @@ use Psr\Container\ContainerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
-use Symfony\Component\HttpKernel\Event\FilterResponseEvent;
 use Symfony\Component\HttpKernel\Event\FinishRequestEvent;
-use Symfony\Component\HttpKernel\Event\GetResponseEvent;
+use Symfony\Component\HttpKernel\Event\RequestEvent;
+use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
@@ -32,20 +32,22 @@ use Symfony\Component\HttpKernel\KernelEvents;
  *
  * @author Johannes M. Schmitt <schmittjoh@gmail.com>
  * @author Tobias Schultze <http://tobion.de>
+ *
+ * @internal
  */
 abstract class AbstractSessionListener implements EventSubscriberInterface
 {
     const NO_AUTO_CACHE_CONTROL_HEADER = 'Symfony-Session-NoAutoCacheControl';
 
     protected $container;
-    private $sessionUsageStack = array();
+    private $sessionUsageStack = [];
 
     public function __construct(ContainerInterface $container = null)
     {
         $this->container = $container;
     }
 
-    public function onKernelRequest(GetResponseEvent $event)
+    public function onKernelRequest(RequestEvent $event)
     {
         if (!$event->isMasterRequest()) {
             return;
@@ -65,29 +67,29 @@ abstract class AbstractSessionListener implements EventSubscriberInterface
         $this->sessionUsageStack[] = $session instanceof Session ? $session->getUsageIndex() : 0;
     }
 
-    public function onKernelResponse(FilterResponseEvent $event)
+    public function onKernelResponse(ResponseEvent $event)
     {
         if (!$event->isMasterRequest()) {
             return;
         }
 
+        $response = $event->getResponse();
+        $autoCacheControl = !$response->headers->has(self::NO_AUTO_CACHE_CONTROL_HEADER);
+        // Always remove the internal header if present
+        $response->headers->remove(self::NO_AUTO_CACHE_CONTROL_HEADER);
+
         if (!$session = $this->container && $this->container->has('initialized_session') ? $this->container->get('initialized_session') : $event->getRequest()->getSession()) {
             return;
         }
 
-        $response = $event->getResponse();
-
         if ($session instanceof Session ? $session->getUsageIndex() !== end($this->sessionUsageStack) : $session->isStarted()) {
-            if (!$response->headers->has(self::NO_AUTO_CACHE_CONTROL_HEADER)) {
+            if ($autoCacheControl) {
                 $response
                     ->setPrivate()
                     ->setMaxAge(0)
                     ->headers->addCacheControlDirective('must-revalidate');
             }
         }
-
-        // Always remove the internal header if present
-        $response->headers->remove(self::NO_AUTO_CACHE_CONTROL_HEADER);
 
         if ($session->isStarted()) {
             /*
@@ -119,9 +121,6 @@ abstract class AbstractSessionListener implements EventSubscriberInterface
         }
     }
 
-    /**
-     * @internal
-     */
     public function onFinishRequest(FinishRequestEvent $event)
     {
         if ($event->isMasterRequest()) {
@@ -131,12 +130,12 @@ abstract class AbstractSessionListener implements EventSubscriberInterface
 
     public static function getSubscribedEvents()
     {
-        return array(
-            KernelEvents::REQUEST => array('onKernelRequest', 128),
+        return [
+            KernelEvents::REQUEST => ['onKernelRequest', 128],
             // low priority to come after regular response listeners, but higher than StreamedResponseListener
-            KernelEvents::RESPONSE => array('onKernelResponse', -1000),
-            KernelEvents::FINISH_REQUEST => array('onFinishRequest'),
-        );
+            KernelEvents::RESPONSE => ['onKernelResponse', -1000],
+            KernelEvents::FINISH_REQUEST => ['onFinishRequest'],
+        ];
     }
 
     /**

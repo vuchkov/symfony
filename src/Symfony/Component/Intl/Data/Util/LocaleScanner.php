@@ -68,7 +68,7 @@ class LocaleScanner
     public function scanAliases($sourceDir)
     {
         $locales = $this->scanLocales($sourceDir);
-        $aliases = array();
+        $aliases = [];
 
         // Delete locales that are no aliases
         foreach ($locales as $locale) {
@@ -89,13 +89,13 @@ class LocaleScanner
     public function scanParents(string $sourceDir): array
     {
         $locales = $this->scanLocales($sourceDir);
-        $fallbacks = array();
+        $fallbacks = [];
 
         foreach ($locales as $locale) {
-            $content = \file_get_contents($sourceDir.'/'.$locale.'.txt');
+            $content = file_get_contents($sourceDir.'/'.$locale.'.txt');
 
             // Aliases contain the text "%%PARENT" followed by the aliased locale
-            if (\preg_match('/%%Parent{"([^"]+)"}/', $content, $matches)) {
+            if (preg_match('/%%Parent{"([^"]+)"}/', $content, $matches)) {
                 $fallbacks[$locale] = $matches[1];
             }
         }

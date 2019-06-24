@@ -81,6 +81,18 @@ class VariableNode extends BaseNode implements PrototypeNodeInterface
      */
     protected function finalizeValue($value)
     {
+        // deny environment variables only when using custom validators
+        // this avoids ever passing an empty value to final validation closures
+        if (!$this->allowEmptyValue && $this->isHandlingPlaceholder() && $this->finalValidationClosures) {
+            $e = new InvalidConfigurationException(sprintf('The path "%s" cannot contain an environment variable when empty values are not allowed by definition and are validated.', $this->getPath(), json_encode($value)));
+            if ($hint = $this->getInfo()) {
+                $e->addHint($hint);
+            }
+            $e->setPath($this->getPath());
+
+            throw $e;
+        }
+
         if (!$this->allowEmptyValue && $this->isValueEmpty($value)) {
             $ex = new InvalidConfigurationException(sprintf('The path "%s" cannot contain an empty value, but got %s.', $this->getPath(), json_encode($value)));
             if ($hint = $this->getInfo()) {
@@ -120,6 +132,8 @@ class VariableNode extends BaseNode implements PrototypeNodeInterface
      * @param mixed $value
      *
      * @return bool
+     *
+     * @see finalizeValue()
      */
     protected function isValueEmpty($value)
     {

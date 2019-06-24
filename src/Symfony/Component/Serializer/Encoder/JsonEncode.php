@@ -22,22 +22,13 @@ class JsonEncode implements EncoderInterface
 {
     const OPTIONS = 'json_encode_options';
 
-    private $defaultContext = array(
+    private $defaultContext = [
         self::OPTIONS => 0,
-    );
+    ];
 
-    /**
-     * @param array $defaultContext
-     */
-    public function __construct($defaultContext = array())
+    public function __construct(array $defaultContext = [])
     {
-        if (!\is_array($defaultContext)) {
-            @trigger_error(sprintf('Passing an integer as first parameter of the "%s()" method is deprecated since Symfony 4.2, use the "json_encode_options" key of the context instead.', __METHOD__), E_USER_DEPRECATED);
-
-            $this->defaultContext[self::OPTIONS] = (int) $defaultContext;
-        } else {
-            $this->defaultContext = array_merge($this->defaultContext, $defaultContext);
-        }
+        $this->defaultContext = array_merge($this->defaultContext, $defaultContext);
     }
 
     /**
@@ -45,10 +36,14 @@ class JsonEncode implements EncoderInterface
      *
      * {@inheritdoc}
      */
-    public function encode($data, $format, array $context = array())
+    public function encode($data, $format, array $context = [])
     {
         $jsonEncodeOptions = $context[self::OPTIONS] ?? $this->defaultContext[self::OPTIONS];
         $encodedJson = json_encode($data, $jsonEncodeOptions);
+
+        if (\PHP_VERSION_ID >= 70300 && (JSON_THROW_ON_ERROR & $jsonEncodeOptions)) {
+            return $encodedJson;
+        }
 
         if (JSON_ERROR_NONE !== json_last_error() && (false === $encodedJson || !($jsonEncodeOptions & JSON_PARTIAL_OUTPUT_ON_ERROR))) {
             throw new NotEncodableValueException(json_last_error_msg());

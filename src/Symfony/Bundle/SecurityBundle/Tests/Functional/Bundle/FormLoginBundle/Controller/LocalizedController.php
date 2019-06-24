@@ -30,11 +30,11 @@ class LocalizedController implements ContainerAwareInterface
             $error = $request->getSession()->get(Security::AUTHENTICATION_ERROR);
         }
 
-        return new Response($this->container->get('twig')->render('@FormLogin/Localized/login.html.twig', array(
+        return new Response($this->container->get('twig')->render('@FormLogin/Localized/login.html.twig', [
             // last username entered by the user
             'last_username' => $request->getSession()->get(Security::LAST_USERNAME),
             'error' => $error,
-        )));
+        ]));
     }
 
     public function loginCheckAction()
@@ -54,11 +54,11 @@ class LocalizedController implements ContainerAwareInterface
 
     public function profileAction()
     {
-        return new Response('Profile');
+        return new Response('<html><body>Profile</body></html>');
     }
 
     public function homepageAction()
     {
-        return new Response('Homepage');
+        return new Response('<html><body>Homepage</body></html>');
     }
 }

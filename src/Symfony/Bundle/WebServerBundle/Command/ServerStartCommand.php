@@ -31,17 +31,15 @@ class ServerStartCommand extends Command
 {
     private $documentRoot;
     private $environment;
+    private $pidFileDirectory;
 
     protected static $defaultName = 'server:start';
 
-    public function __construct(string $documentRoot = null, string $environment = null)
+    public function __construct(string $documentRoot = null, string $environment = null, string $pidFileDirectory = null)
     {
-        if (!$environment) {
-            @trigger_error(sprintf('Omitting the $environment argument of the "%s" constructor is deprecated since Symfony 4.2.', __CLASS__), E_USER_DEPRECATED);
-        }
-
         $this->documentRoot = $documentRoot;
         $this->environment = $environment;
+        $this->pidFileDirectory = $pidFileDirectory;
 
         parent::__construct();
     }
@@ -52,12 +50,12 @@ class ServerStartCommand extends Command
     protected function configure()
     {
         $this
-            ->setDefinition(array(
+            ->setDefinition([
                 new InputArgument('addressport', InputArgument::OPTIONAL, 'The address to listen to (can be address:port, address, or port)'),
                 new InputOption('docroot', 'd', InputOption::VALUE_REQUIRED, 'Document root'),
                 new InputOption('router', 'r', InputOption::VALUE_REQUIRED, 'Path to custom router script'),
                 new InputOption('pidfile', null, InputOption::VALUE_REQUIRED, 'PID file'),
-            ))
+            ])
             ->setDescription('Starts a local web server in the background')
             ->setHelp(<<<'EOF'
 <info>%command.name%</info> runs a local web server: By default, the server
@@ -95,10 +93,10 @@ EOF
         $io = new SymfonyStyle($input, $output instanceof ConsoleOutputInterface ? $output->getErrorOutput() : $output);
 
         if (!\extension_loaded('pcntl')) {
-            $io->error(array(
+            $io->error([
                 'This command needs the pcntl extension to run.',
                 'You can either install it or use the "server:run" command instead.',
-            ));
+            ]);
 
             if ($io->confirm('Do you want to execute <info>server:run</info> immediately?', false)) {
                 return $this->getApplication()->find('server:run')->run($input, $output);
@@ -116,7 +114,6 @@ EOF
             $documentRoot = $this->documentRoot;
         }
 
-        // @deprecated since Symfony 4.2
         if (!$env = $this->environment) {
             if ($input->hasOption('env') && !$env = $input->getOption('env')) {
                 $io->error('The environment must be either passed as second argument of the constructor or through the "--env" input option.');
@@ -138,7 +135,7 @@ EOF
         $this->getApplication()->setDispatcher(new EventDispatcher());
 
         try {
-            $server = new WebServer();
+            $server = new WebServer($this->pidFileDirectory);
             if ($server->isRunning($input->getOption('pidfile'))) {
                 $io->error(sprintf('The web server has already been started. It is currently listening on http://%s. Please stop the web server before you try to start it again.', $server->getAddress($input->getOption('pidfile'))));
 

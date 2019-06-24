@@ -28,8 +28,8 @@ final class CacheItem implements ItemInterface
     protected $isHit = false;
     protected $expiry;
     protected $defaultLifetime;
-    protected $metadata = array();
-    protected $newMetadata = array();
+    protected $metadata = [];
+    protected $newMetadata = [];
     protected $innerItem;
     protected $poolHash;
     protected $isTaggable = false;
@@ -37,7 +37,7 @@ final class CacheItem implements ItemInterface
     /**
      * {@inheritdoc}
      */
-    public function getKey()
+    public function getKey(): string
     {
         return $this->key;
     }
@@ -53,7 +53,7 @@ final class CacheItem implements ItemInterface
     /**
      * {@inheritdoc}
      */
-    public function isHit()
+    public function isHit(): bool
     {
         return $this->isHit;
     }
@@ -110,8 +110,8 @@ final class CacheItem implements ItemInterface
         if (!$this->isTaggable) {
             throw new LogicException(sprintf('Cache item "%s" comes from a non tag-aware pool: you cannot tag it.', $this->key));
         }
-        if (!\is_iterable($tags)) {
-            $tags = array($tags);
+        if (!is_iterable($tags)) {
+            $tags = [$tags];
         }
         foreach ($tags as $tag) {
             if (!\is_string($tag)) {
@@ -141,29 +141,13 @@ final class CacheItem implements ItemInterface
     }
 
     /**
-     * Returns the list of tags bound to the value coming from the pool storage if any.
-     *
-     * @return array
-     *
-     * @deprecated since Symfony 4.2, use the "getMetadata()" method instead.
-     */
-    public function getPreviousTags()
-    {
-        @trigger_error(sprintf('The "%s()" method is deprecated since Symfony 4.2, use the "getMetadata()" method instead.', __METHOD__), E_USER_DEPRECATED);
-
-        return $this->metadata[self::METADATA_TAGS] ?? array();
-    }
-
-    /**
      * Validates a cache key according to PSR-6.
      *
      * @param string $key The key to validate
      *
-     * @return string
-     *
      * @throws InvalidArgumentException When $key is not valid
      */
-    public static function validateKey($key)
+    public static function validateKey($key): string
     {
         if (!\is_string($key)) {
             throw new InvalidArgumentException(sprintf('Cache key must be string, "%s" given', \is_object($key) ? \get_class($key) : \gettype($key)));
@@ -183,12 +167,12 @@ final class CacheItem implements ItemInterface
      *
      * @internal
      */
-    public static function log(LoggerInterface $logger = null, $message, $context = array())
+    public static function log(LoggerInterface $logger = null, $message, $context = [])
     {
         if ($logger) {
             $logger->warning($message, $context);
         } else {
-            $replace = array();
+            $replace = [];
             foreach ($context as $k => $v) {
                 if (is_scalar($v)) {
                     $replace['{'.$k.'}'] = $v;

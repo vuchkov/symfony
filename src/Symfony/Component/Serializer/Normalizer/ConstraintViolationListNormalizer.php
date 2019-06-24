@@ -11,6 +11,7 @@
 
 namespace Symfony\Component\Serializer\Normalizer;
 
+use Symfony\Component\Serializer\NameConverter\NameConverterInterface;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
 
 /**
@@ -30,26 +31,29 @@ class ConstraintViolationListNormalizer implements NormalizerInterface, Cacheabl
     const TYPE = 'type';
 
     private $defaultContext;
+    private $nameConverter;
 
-    public function __construct($defaultContext = array())
+    public function __construct($defaultContext = [], NameConverterInterface $nameConverter = null)
     {
         $this->defaultContext = $defaultContext;
+        $this->nameConverter = $nameConverter;
     }
 
     /**
      * {@inheritdoc}
      */
-    public function normalize($object, $format = null, array $context = array())
+    public function normalize($object, $format = null, array $context = [])
     {
-        $violations = array();
-        $messages = array();
+        $violations = [];
+        $messages = [];
         foreach ($object as $violation) {
-            $propertyPath = $violation->getPropertyPath();
+            $propertyPath = $this->nameConverter ? $this->nameConverter->normalize($violation->getPropertyPath(), null, $format, $context) : $violation->getPropertyPath();
 
-            $violationEntry = array(
+            $violationEntry = [
                 'propertyPath' => $propertyPath,
                 'title' => $violation->getMessage(),
-            );
+                'parameters' => $violation->getParameters(),
+            ];
             if (null !== $code = $violation->getCode()) {
                 $violationEntry['type'] = sprintf('urn:uuid:%s', $code);
             }
@@ -60,10 +64,10 @@ class ConstraintViolationListNormalizer implements NormalizerInterface, Cacheabl
             $messages[] = $prefix.$violation->getMessage();
         }
 
-        $result = array(
+        $result = [
             'type' => $context[self::TYPE] ?? $this->defaultContext[self::TYPE] ?? 'https://symfony.com/errors/validation',
             'title' => $context[self::TITLE] ?? $this->defaultContext[self::TITLE] ?? 'Validation Failed',
-        );
+        ];
         if (null !== $status = ($context[self::STATUS] ?? $this->defaultContext[self::STATUS] ?? null)) {
             $result['status'] = $status;
         }
@@ -74,7 +78,7 @@ class ConstraintViolationListNormalizer implements NormalizerInterface, Cacheabl
             $result['instance'] = $instance;
         }
 
-        return $result + array('violations' => $violations);
+        return $result + ['violations' => $violations];
     }
 
     /**
