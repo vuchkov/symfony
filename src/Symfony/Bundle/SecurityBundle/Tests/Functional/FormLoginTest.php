@@ -11,7 +11,7 @@
 
 namespace Symfony\Bundle\SecurityBundle\Tests\Functional;
 
-class FormLoginTest extends WebTestCase
+class FormLoginTest extends AbstractWebTestCase
 {
     /**
      * @dataProvider getConfigs
@@ -27,9 +27,9 @@ class FormLoginTest extends WebTestCase
 
         $this->assertRedirect($client->getResponse(), '/profile');
 
-        $text = $client->followRedirect()->text();
-        $this->assertContains('Hello johannes!', $text);
-        $this->assertContains('You\'re browsing to path "/profile".', $text);
+        $text = $client->followRedirect()->text(null, true);
+        $this->assertStringContainsString('Hello johannes!', $text);
+        $this->assertStringContainsString('You\'re browsing to path "/profile".', $text);
     }
 
     /**
@@ -47,10 +47,10 @@ class FormLoginTest extends WebTestCase
         $this->assertRedirect($client->getResponse(), '/profile');
 
         $crawler = $client->followRedirect();
-        $text = $crawler->text();
+        $text = $crawler->text(null, true);
 
-        $this->assertContains('Hello johannes!', $text);
-        $this->assertContains('You\'re browsing to path "/profile".', $text);
+        $this->assertStringContainsString('Hello johannes!', $text);
+        $this->assertStringContainsString('You\'re browsing to path "/profile".', $text);
 
         $logoutLinks = $crawler->selectLink('Log out')->links();
         $this->assertCount(6, $logoutLinks);
@@ -80,9 +80,9 @@ class FormLoginTest extends WebTestCase
 
         $this->assertRedirect($client->getResponse(), '/foo');
 
-        $text = $client->followRedirect()->text();
-        $this->assertContains('Hello johannes!', $text);
-        $this->assertContains('You\'re browsing to path "/foo".', $text);
+        $text = $client->followRedirect()->text(null, true);
+        $this->assertStringContainsString('Hello johannes!', $text);
+        $this->assertStringContainsString('You\'re browsing to path "/foo".', $text);
     }
 
     /**
@@ -101,9 +101,9 @@ class FormLoginTest extends WebTestCase
         $client->submit($form);
         $this->assertRedirect($client->getResponse(), '/protected_resource');
 
-        $text = $client->followRedirect()->text();
-        $this->assertContains('Hello johannes!', $text);
-        $this->assertContains('You\'re browsing to path "/protected_resource".', $text);
+        $text = $client->followRedirect()->text(null, true);
+        $this->assertStringContainsString('Hello johannes!', $text);
+        $this->assertStringContainsString('You\'re browsing to path "/protected_resource".', $text);
     }
 
     public function getConfigs()

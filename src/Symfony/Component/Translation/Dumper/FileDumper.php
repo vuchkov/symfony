@@ -37,7 +37,7 @@ abstract class FileDumper implements DumperInterface
      *
      * @param string $relativePathTemplate A template for the relative paths to files
      */
-    public function setRelativePathTemplate($relativePathTemplate)
+    public function setRelativePathTemplate(string $relativePathTemplate)
     {
         $this->relativePathTemplate = $relativePathTemplate;
     }
@@ -45,55 +45,52 @@ abstract class FileDumper implements DumperInterface
     /**
      * {@inheritdoc}
      */
-    public function dump(MessageCatalogue $messages, $options = [])
+    public function dump(MessageCatalogue $messages, array $options = [])
     {
         if (!\array_key_exists('path', $options)) {
             throw new InvalidArgumentException('The file dumper needs a path option.');
         }
 
+        $hasMessageFormatter = class_exists(\MessageFormatter::class);
+
         // save a file for each domain
         foreach ($messages->getDomains() as $domain) {
-            $fullpath = $options['path'].'/'.$this->getRelativePath($domain, $messages->getLocale());
-            if (!file_exists($fullpath)) {
-                $directory = \dirname($fullpath);
+            if ($hasMessageFormatter) {
+                $defaultDomain = $domain.MessageCatalogue::INTL_DOMAIN_SUFFIX;
+                $altDomain = $domain;
+            } else {
+                $defaultDomain = $domain;
+                $altDomain = $domain.MessageCatalogue::INTL_DOMAIN_SUFFIX;
+            }
+            $defaultPath = $options['path'].'/'.$this->getRelativePath($defaultDomain, $messages->getLocale());
+            $altPath = $options['path'].'/'.$this->getRelativePath($altDomain, $messages->getLocale());
+
+            if (!file_exists($defaultPath) && file_exists($altPath)) {
+                [$defaultPath, $altPath] = [$altPath, $defaultPath];
+            }
+
+            if (!file_exists($defaultPath)) {
+                $directory = \dirname($defaultPath);
                 if (!file_exists($directory) && !@mkdir($directory, 0777, true)) {
                     throw new RuntimeException(sprintf('Unable to create directory "%s".', $directory));
                 }
             }
 
-            $intlDomain = $domain.MessageCatalogue::INTL_DOMAIN_SUFFIX;
-            $intlMessages = $messages->all($intlDomain);
-
-            if ($intlMessages) {
-                $intlPath = $options['path'].'/'.$this->getRelativePath($intlDomain, $messages->getLocale());
-                file_put_contents($intlPath, $this->formatCatalogue($messages, $intlDomain, $options));
-
-                $messages->replace([], $intlDomain);
-
-                try {
-                    if ($messages->all($domain)) {
-                        file_put_contents($fullpath, $this->formatCatalogue($messages, $domain, $options));
-                    }
-                    continue;
-                } finally {
-                    $messages->replace($intlMessages, $intlDomain);
-                }
+            if (file_exists($altPath)) {
+                // clear alternative translation file
+                file_put_contents($altPath, $this->formatCatalogue(new MessageCatalogue($messages->getLocale()), $altDomain, $options));
             }
 
-            file_put_contents($fullpath, $this->formatCatalogue($messages, $domain, $options));
+            file_put_contents($defaultPath, $this->formatCatalogue($messages, $domain, $options));
         }
     }
 
     /**
      * Transforms a domain of a message catalogue to its string representation.
      *
-     * @param MessageCatalogue $messages
-     * @param string           $domain
-     * @param array            $options
-     *
      * @return string representation
      */
-    abstract public function formatCatalogue(MessageCatalogue $messages, $domain, array $options = []);
+    abstract public function formatCatalogue(MessageCatalogue $messages, string $domain, array $options = []);
 
     /**
      * Gets the file extension of the dumper.

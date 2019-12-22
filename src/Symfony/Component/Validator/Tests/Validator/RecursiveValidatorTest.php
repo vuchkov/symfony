@@ -23,10 +23,11 @@ use Symfony\Component\Validator\Tests\Constraints\Fixtures\ChildA;
 use Symfony\Component\Validator\Tests\Constraints\Fixtures\ChildB;
 use Symfony\Component\Validator\Tests\Fixtures\Entity;
 use Symfony\Component\Validator\Validator\RecursiveValidator;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 class RecursiveValidatorTest extends AbstractTest
 {
-    protected function createValidator(MetadataFactoryInterface $metadataFactory, array $objectInitializers = [])
+    protected function createValidator(MetadataFactoryInterface $metadataFactory, array $objectInitializers = []): ValidatorInterface
     {
         $translator = new IdentityTranslator();
         $translator->setLocale('en');
@@ -129,8 +130,9 @@ class RecursiveValidatorTest extends AbstractTest
 
         $violations = $this->validator->validate($entity, null, ['one', 'two']);
 
-        $this->assertCount(2, $violations);
+        $this->assertCount(3, $violations);
         $this->assertInstanceOf(NotBlank::class, $violations->get(0)->getConstraint());
         $this->assertInstanceOf(Length::class, $violations->get(1)->getConstraint());
+        $this->assertInstanceOf(Length::class, $violations->get(2)->getConstraint());
     }
 }

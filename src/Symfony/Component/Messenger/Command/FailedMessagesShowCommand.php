@@ -18,13 +18,10 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Symfony\Component\Messenger\Stamp\RedeliveryStamp;
 use Symfony\Component\Messenger\Transport\Receiver\ListableReceiverInterface;
 
 /**
  * @author Ryan Weaver <ryan@symfonycasts.com>
- *
- * @experimental in 4.3
  */
 class FailedMessagesShowCommand extends AbstractFailedMessagesCommand
 {
@@ -73,6 +70,8 @@ EOF
         } else {
             $this->showMessage($id, $io);
         }
+
+        return 0;
     }
 
     private function listMessages(SymfonyStyle $io, int $max)
@@ -83,14 +82,13 @@ EOF
 
         $rows = [];
         foreach ($envelopes as $envelope) {
-            /** @var RedeliveryStamp|null $lastRedeliveryStamp */
-            $lastRedeliveryStamp = $envelope->last(RedeliveryStamp::class);
+            $lastRedeliveryStampWithException = $this->getLastRedeliveryStampWithException($envelope);
 
             $rows[] = [
                 $this->getMessageId($envelope),
                 \get_class($envelope->getMessage()),
-                null === $lastRedeliveryStamp ? '' : $lastRedeliveryStamp->getRedeliveredAt()->format('Y-m-d H:i:s'),
-                null === $lastRedeliveryStamp ? '' : $lastRedeliveryStamp->getExceptionMessage(),
+                null === $lastRedeliveryStampWithException ? '' : $lastRedeliveryStampWithException->getRedeliveredAt()->format('Y-m-d H:i:s'),
+                null === $lastRedeliveryStampWithException ? '' : $lastRedeliveryStampWithException->getExceptionMessage(),
             ];
         }
 
@@ -109,7 +107,7 @@ EOF
         $io->comment('Run <comment>messenger:failed:show {id} -vv</comment> to see message details.');
     }
 
-    private function showMessage($id, SymfonyStyle $io)
+    private function showMessage(string $id, SymfonyStyle $io)
     {
         /** @var ListableReceiverInterface $receiver */
         $receiver = $this->getReceiver();

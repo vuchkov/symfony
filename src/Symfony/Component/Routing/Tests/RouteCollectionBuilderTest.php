@@ -19,6 +19,9 @@ use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 use Symfony\Component\Routing\RouteCollectionBuilder;
 
+/**
+ * @group legacy
+ */
 class RouteCollectionBuilderTest extends TestCase
 {
     public function testImport()
@@ -75,11 +78,9 @@ class RouteCollectionBuilderTest extends TestCase
         $this->assertCount(1, $routeCollection->getResources());
     }
 
-    /**
-     * @expectedException \BadMethodCallException
-     */
     public function testImportWithoutLoaderThrowsException()
     {
+        $this->expectException('BadMethodCallException');
         $collectionBuilder = new RouteCollectionBuilder();
         $collectionBuilder->import('routing.yml');
     }

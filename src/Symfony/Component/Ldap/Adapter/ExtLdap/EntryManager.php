@@ -101,7 +101,7 @@ class EntryManager implements EntryManagerInterface
     /**
      * {@inheritdoc}
      */
-    public function rename(Entry $entry, $newRdn, $removeOldRdn = true)
+    public function rename(Entry $entry, string $newRdn, bool $removeOldRdn = true)
     {
         $con = $this->getConnectionResource();
 
@@ -156,7 +156,7 @@ class EntryManager implements EntryManagerInterface
         }
     }
 
-    private function parseRdnFromEntry(Entry $entry)
+    private function parseRdnFromEntry(Entry $entry): string
     {
         if (!preg_match('/^([^,]+),/', $entry->getDn(), $matches)) {
             throw new LdapException(sprintf('Entry "%s" malformed, could not parse RDN.', $entry->getDn()));

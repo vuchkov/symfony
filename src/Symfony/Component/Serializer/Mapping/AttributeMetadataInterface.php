@@ -24,31 +24,25 @@ interface AttributeMetadataInterface
 {
     /**
      * Gets the attribute name.
-     *
-     * @return string
      */
-    public function getName();
+    public function getName(): string;
 
     /**
      * Adds this attribute to the given group.
-     *
-     * @param string $group
      */
-    public function addGroup($group);
+    public function addGroup(string $group);
 
     /**
      * Gets groups of this attribute.
      *
      * @return string[]
      */
-    public function getGroups();
+    public function getGroups(): array;
 
     /**
      * Sets the serialization max depth for this attribute.
-     *
-     * @param int|null $maxDepth
      */
-    public function setMaxDepth($maxDepth);
+    public function setMaxDepth(?int $maxDepth);
 
     /**
      * Gets the serialization max depth for this attribute.

@@ -1,5 +1,5 @@
 imports:
-    - { resource: ./../config/default.yml }
+    - { resource: ./../config/framework.yml }
 services:
     Symfony\Component\Ldap\Ldap:
         arguments: ['@Symfony\Component\Ldap\Adapter\ExtLdap\Adapter']
@@ -21,6 +21,7 @@ security:
                 search_password: ''
                 default_roles: ROLE_USER
                 uid_key: uid
+                extra_fields: ['email']
 
     firewalls:
         main:

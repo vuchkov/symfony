@@ -7,6 +7,7 @@ use Symfony\Component\DependencyInjection\Exception\InvalidArgumentException;
 use Symfony\Component\DependencyInjection\Exception\LogicException;
 use Symfony\Component\DependencyInjection\Exception\RuntimeException;
 use Symfony\Component\DependencyInjection\ParameterBag\FrozenParameterBag;
+use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 
 /**
  * This class has been auto-generated
@@ -16,15 +17,10 @@ use Symfony\Component\DependencyInjection\ParameterBag\FrozenParameterBag;
  */
 class Symfony_DI_PhpDumper_Test_EnvParameters extends Container
 {
-    private $parameters;
-    private $targetDirs = [];
+    private $parameters = [];
 
     public function __construct()
     {
-        $dir = __DIR__;
-        for ($i = 1; $i <= 5; ++$i) {
-            $this->targetDirs[$i] = $dir = \dirname($dir);
-        }
         $this->parameters = $this->getDefaultParameters();
 
         $this->services = $this->privates = [];
@@ -36,17 +32,17 @@ class Symfony_DI_PhpDumper_Test_EnvParameters extends Container
         $this->aliases = [];
     }
 
-    public function compile()
+    public function compile(): void
     {
         throw new LogicException('You cannot compile a dumped container that was already compiled.');
     }
 
-    public function isCompiled()
+    public function isCompiled(): bool
     {
         return true;
     }
 
-    public function getRemovedIds()
+    public function getRemovedIds(): array
     {
         return [
             'Psr\\Container\\ContainerInterface' => true,
@@ -74,10 +70,8 @@ class Symfony_DI_PhpDumper_Test_EnvParameters extends Container
         return $this->services['test'] = new ${($_ = $this->getEnv('FOO')) && false ?: "_"}($this->getEnv('Bar'), 'foo'.$this->getEnv('string:FOO').'baz', $this->getEnv('int:Baz'));
     }
 
-    public function getParameter($name)
+    public function getParameter(string $name)
     {
-        $name = (string) $name;
-
         if (!(isset($this->parameters[$name]) || isset($this->loadedDynamicParameters[$name]) || array_key_exists($name, $this->parameters))) {
             throw new InvalidArgumentException(sprintf('The parameter "%s" must be defined.', $name));
         }
@@ -88,19 +82,17 @@ class Symfony_DI_PhpDumper_Test_EnvParameters extends Container
         return $this->parameters[$name];
     }
 
-    public function hasParameter($name)
+    public function hasParameter(string $name): bool
     {
-        $name = (string) $name;
-
         return isset($this->parameters[$name]) || isset($this->loadedDynamicParameters[$name]) || array_key_exists($name, $this->parameters);
     }
 
-    public function setParameter($name, $value)
+    public function setParameter(string $name, $value): void
     {
         throw new LogicException('Impossible to call set() on a frozen ParameterBag.');
     }
 
-    public function getParameterBag()
+    public function getParameterBag(): ParameterBagInterface
     {
         if (null === $this->parameterBag) {
             $parameters = $this->parameters;
@@ -118,27 +110,16 @@ class Symfony_DI_PhpDumper_Test_EnvParameters extends Container
         'baz' => false,
         'json' => false,
         'db_dsn' => false,
-        'env(json_file)' => false,
     ];
     private $dynamicParameters = [];
 
-    /**
-     * Computes a dynamic parameter.
-     *
-     * @param string $name The name of the dynamic parameter to load
-     *
-     * @return mixed The value of the dynamic parameter
-     *
-     * @throws InvalidArgumentException When the dynamic parameter does not exist
-     */
-    private function getDynamicParameter($name)
+    private function getDynamicParameter(string $name)
     {
         switch ($name) {
             case 'bar': $value = $this->getEnv('FOO'); break;
             case 'baz': $value = $this->getEnv('int:Baz'); break;
             case 'json': $value = $this->getEnv('json:file:json_file'); break;
             case 'db_dsn': $value = $this->getEnv('resolve:DB'); break;
-            case 'env(json_file)': $value = ($this->targetDirs[1].'/array.json'); break;
             default: throw new InvalidArgumentException(sprintf('The dynamic parameter "%s" must be defined.', $name));
         }
         $this->loadedDynamicParameters[$name] = true;
@@ -146,17 +127,13 @@ class Symfony_DI_PhpDumper_Test_EnvParameters extends Container
         return $this->dynamicParameters[$name] = $value;
     }
 
-    /**
-     * Gets the default parameters.
-     *
-     * @return array An array of the default parameters
-     */
-    protected function getDefaultParameters()
+    protected function getDefaultParameters(): array
     {
         return [
             'project_dir' => '/foo/bar',
             'env(FOO)' => 'foo',
             'env(DB)' => 'sqlite://%project_dir%/var/data.db',
+            'env(json_file)' => (\dirname(__DIR__, 1).'/array.json'),
         ];
     }
 }

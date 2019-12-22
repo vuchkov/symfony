@@ -32,6 +32,7 @@
             <xsd:element name="lock" type="lock" minOccurs="0" maxOccurs="1" />
             <xsd:element name="messenger" type="messenger" minOccurs="0" maxOccurs="1" />
             <xsd:element name="http-client" type="http_client" minOccurs="0" maxOccurs="1" />
+            <xsd:element name="mailer" type="mailer" minOccurs="0" maxOccurs="1" />
         </xsd:choice>
 
         <xsd:attribute name="http-method-override" type="xsd:boolean" />
@@ -39,6 +40,7 @@
         <xsd:attribute name="secret" type="xsd:string" />
         <xsd:attribute name="default-locale" type="xsd:string" />
         <xsd:attribute name="test" type="xsd:boolean" />
+        <xsd:attribute name="error-controller" type="xsd:string" />
     </xsd:complexType>
 
     <xsd:complexType name="form">
@@ -172,6 +174,7 @@
         <xsd:attribute name="fallback" type="xsd:string" />
         <xsd:attribute name="logging" type="xsd:boolean" />
         <xsd:attribute name="formatter" type="xsd:string" />
+        <xsd:attribute name="cache-dir" type="xsd:string" />
     </xsd:complexType>
 
     <xsd:complexType name="validation">
@@ -256,6 +259,10 @@
     </xsd:complexType>
 
     <xsd:complexType name="cache_pool">
+        <xsd:sequence>
+            <xsd:element name="adapter" type="cache_pool_adapter" minOccurs="0" maxOccurs="unbounded" />
+        </xsd:sequence>
+
         <xsd:attribute name="name" type="xsd:string" use="required" />
         <xsd:attribute name="adapter" type="xsd:string" />
         <xsd:attribute name="tags" type="xsd:string" />
@@ -263,6 +270,11 @@
         <xsd:attribute name="default-lifetime" type="xsd:integer" />
         <xsd:attribute name="provider" type="xsd:string" />
         <xsd:attribute name="clearer" type="xsd:string" />
+    </xsd:complexType>
+
+    <xsd:complexType name="cache_pool_adapter">
+        <xsd:attribute name="name" type="xsd:string" use="required" />
+        <xsd:attribute name="provider" type="xsd:string" />
     </xsd:complexType>
 
     <xsd:complexType name="workflow">
@@ -471,6 +483,7 @@
         <xsd:attribute name="proxy" type="xsd:string" />
         <xsd:attribute name="no-proxy" type="xsd:string" />
         <xsd:attribute name="timeout" type="xsd:float" />
+        <xsd:attribute name="max-duration" type="xsd:float" />
         <xsd:attribute name="bindto" type="xsd:string" />
         <xsd:attribute name="verify-peer" type="xsd:boolean" />
         <xsd:attribute name="verify-host" type="xsd:boolean" />
@@ -529,5 +542,20 @@
 
     <xsd:complexType name="http_header" mixed="true">
         <xsd:attribute name="name" type="xsd:string" />
+    </xsd:complexType>
+
+    <xsd:complexType name="mailer">
+        <xsd:sequence>
+            <xsd:element name="envelope" type="mailer_envelope" minOccurs="0" maxOccurs="1" />
+        </xsd:sequence>
+        <xsd:attribute name="dsn" type="xsd:string" />
+        <xsd:attribute name="message-bus" type="xsd:string" />
+    </xsd:complexType>
+
+    <xsd:complexType name="mailer_envelope">
+        <xsd:sequence>
+            <xsd:element name="sender" type="xsd:string" />
+            <xsd:element name="recipients" type="xsd:string" minOccurs="0" maxOccurs="unbounded" />
+        </xsd:sequence>
     </xsd:complexType>
 </xsd:schema>

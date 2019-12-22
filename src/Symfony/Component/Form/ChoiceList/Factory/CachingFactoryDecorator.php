@@ -41,14 +41,13 @@ class CachingFactoryDecorator implements ChoiceListFactoryInterface, ResetInterf
      * Optionally, a namespace string can be passed. Calling this method will
      * the same values, but different namespaces, will return different hashes.
      *
-     * @param mixed  $value     The value to hash
-     * @param string $namespace Optional. The namespace
+     * @param mixed $value The value to hash
      *
      * @return string The SHA-256 hash
      *
      * @internal
      */
-    public static function generateHash($value, $namespace = '')
+    public static function generateHash($value, string $namespace = ''): string
     {
         if (\is_object($value)) {
             $value = spl_object_hash($value);
@@ -81,7 +80,7 @@ class CachingFactoryDecorator implements ChoiceListFactoryInterface, ResetInterf
     /**
      * {@inheritdoc}
      */
-    public function createListFromChoices($choices, $value = null)
+    public function createListFromChoices(iterable $choices, $value = null)
     {
         if ($choices instanceof \Traversable) {
             $choices = iterator_to_array($choices);

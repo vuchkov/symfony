@@ -15,6 +15,7 @@ use Symfony\Component\Config\Definition\Builder\NodeDefinition;
 use Symfony\Component\DependencyInjection\ChildDefinition;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
+use Symfony\Component\Security\Core\Exception\LogicException;
 
 /**
  * HttpBasicFactory creates services for HTTP basic authentication.
@@ -25,7 +26,7 @@ use Symfony\Component\DependencyInjection\Reference;
  */
 class HttpBasicLdapFactory extends HttpBasicFactory
 {
-    public function create(ContainerBuilder $container, $id, $config, $userProvider, $defaultEntryPoint)
+    public function create(ContainerBuilder $container, string $id, array $config, string $userProvider, ?string $defaultEntryPoint)
     {
         $provider = 'security.authentication.provider.ldap_bind.'.$id;
         $definition = $container
@@ -35,12 +36,17 @@ class HttpBasicLdapFactory extends HttpBasicFactory
             ->replaceArgument(2, $id)
             ->replaceArgument(3, new Reference($config['service']))
             ->replaceArgument(4, $config['dn_string'])
+            ->replaceArgument(6, $config['search_dn'])
+            ->replaceArgument(7, $config['search_password'])
         ;
 
         // entry point
         $entryPointId = $this->createEntryPoint($container, $id, $config, $defaultEntryPoint);
 
         if (!empty($config['query_string'])) {
+            if ('' === $config['search_dn'] || '' === $config['search_password']) {
+                throw new LogicException('Using the "query_string" config without using a "search_dn" and a "search_password" is not supported.');
+            }
             $definition->addMethodCall('setQueryString', [$config['query_string']]);
         }
 
@@ -62,6 +68,8 @@ class HttpBasicLdapFactory extends HttpBasicFactory
                 ->scalarNode('service')->defaultValue('ldap')->end()
                 ->scalarNode('dn_string')->defaultValue('{username}')->end()
                 ->scalarNode('query_string')->end()
+                ->scalarNode('search_dn')->defaultValue('')->end()
+                ->scalarNode('search_password')->defaultValue('')->end()
             ->end()
         ;
     }

@@ -89,8 +89,10 @@ final class LockRegistry
         while (true) {
             try {
                 // race to get the lock in non-blocking mode
-                if (flock($lock, LOCK_EX | LOCK_NB)) {
-                    $logger && $logger->info('Lock acquired, now computing item "{key}"', ['key' => $item->getKey()]);
+                $locked = flock($lock, LOCK_EX | LOCK_NB, $wouldBlock);
+
+                if ($locked || !$wouldBlock) {
+                    $logger && $logger->info(sprintf('Lock %s, now computing item "{key}"', $locked ? 'acquired' : 'not supported'), ['key' => $item->getKey()]);
                     self::$lockedFiles[$key] = true;
 
                     $value = $callback($item, $save);
@@ -130,6 +132,8 @@ final class LockRegistry
                 $logger && $logger->info('Item "{key}" not found while lock was released, now retrying', ['key' => $item->getKey()]);
             }
         }
+
+        return null;
     }
 
     private static function open(int $key)

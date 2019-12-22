@@ -27,22 +27,27 @@ class Registry
         $this->workflows[] = [$workflow, $supportStrategy];
     }
 
+    public function has(object $subject, string $workflowName = null): bool
+    {
+        foreach ($this->workflows as list($workflow, $supportStrategy)) {
+            if ($this->supports($workflow, $supportStrategy, $subject, $workflowName)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
-     * @param object      $subject
-     * @param string|null $workflowName
-     *
      * @return Workflow
      */
-    public function get($subject, $workflowName = null)
+    public function get(object $subject, string $workflowName = null)
     {
-        $matched = null;
+        $matched = [];
 
         foreach ($this->workflows as list($workflow, $supportStrategy)) {
             if ($this->supports($workflow, $supportStrategy, $subject, $workflowName)) {
-                if ($matched) {
-                    throw new InvalidArgumentException('At least two workflows match this subject. Set a different name on each and use the second (name) argument of this method.');
-                }
-                $matched = $workflow;
+                $matched[] = $workflow;
             }
         }
 
@@ -50,15 +55,21 @@ class Registry
             throw new InvalidArgumentException(sprintf('Unable to find a workflow for class "%s".', \get_class($subject)));
         }
 
-        return $matched;
+        if (2 <= \count($matched)) {
+            $names = array_map(static function (WorkflowInterface $workflow): string {
+                return $workflow->getName();
+            }, $matched);
+
+            throw new InvalidArgumentException(sprintf('Too many workflows (%s) match this subject (%s); set a different name on each and use the second (name) argument of this method.', implode(', ', $names), \get_class($subject)));
+        }
+
+        return $matched[0];
     }
 
     /**
-     * @param object $subject
-     *
      * @return Workflow[]
      */
-    public function all($subject): array
+    public function all(object $subject): array
     {
         $matched = [];
         foreach ($this->workflows as list($workflow, $supportStrategy)) {
@@ -70,7 +81,7 @@ class Registry
         return $matched;
     }
 
-    private function supports(WorkflowInterface $workflow, $supportStrategy, $subject, $workflowName): bool
+    private function supports(WorkflowInterface $workflow, WorkflowSupportStrategyInterface $supportStrategy, object $subject, ?string $workflowName): bool
     {
         if (null !== $workflowName && $workflowName !== $workflow->getName()) {
             return false;

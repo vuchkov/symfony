@@ -64,10 +64,10 @@ interface ExecutionContextInterface
     /**
      * Adds a violation at the current node of the validation graph.
      *
-     * @param string $message The error message
-     * @param array  $params  The parameters substituted in the error message
+     * @param string|object $message The error message as a string or a stringable object
+     * @param array         $params  The parameters substituted in the error message
      */
-    public function addViolation($message, array $params = []);
+    public function addViolation(string $message, array $params = []);
 
     /**
      * Returns a builder for adding a violation with extended information.
@@ -81,12 +81,12 @@ interface ExecutionContextInterface
      *         ->setTranslationDomain('number_validation')
      *         ->addViolation();
      *
-     * @param string $message    The error message
-     * @param array  $parameters The parameters substituted in the error message
+     * @param string|object $message    The error message as a string or a stringable object
+     * @param array         $parameters The parameters substituted in the error message
      *
      * @return ConstraintViolationBuilderInterface The violation builder
      */
-    public function buildViolation($message, array $parameters = []);
+    public function buildViolation(string $message, array $parameters = []);
 
     /**
      * Returns the validator.
@@ -125,15 +125,14 @@ interface ExecutionContextInterface
     /**
      * Sets the currently validated value.
      *
-     * @param mixed                  $value        The validated value
-     * @param object|null            $object       The currently validated object
-     * @param MetadataInterface|null $metadata     The validation metadata
-     * @param string                 $propertyPath The property path to the current value
+     * @param mixed       $value        The validated value
+     * @param object|null $object       The currently validated object
+     * @param string      $propertyPath The property path to the current value
      *
      * @internal Used by the validator engine. Should not be called by user
      *           code.
      */
-    public function setNode($value, $object, MetadataInterface $metadata = null, $propertyPath);
+    public function setNode($value, ?object $object, MetadataInterface $metadata = null, string $propertyPath);
 
     /**
      * Sets the currently validated group.
@@ -143,12 +142,10 @@ interface ExecutionContextInterface
      * @internal Used by the validator engine. Should not be called by user
      *           code.
      */
-    public function setGroup($group);
+    public function setGroup(?string $group);
 
     /**
      * Sets the currently validated constraint.
-     *
-     * @param Constraint $constraint The validated constraint
      *
      * @internal Used by the validator engine. Should not be called by user
      *           code.
@@ -165,7 +162,7 @@ interface ExecutionContextInterface
      * @internal Used by the validator engine. Should not be called by user
      *           code.
      */
-    public function markGroupAsValidated($cacheKey, $groupHash);
+    public function markGroupAsValidated(string $cacheKey, string $groupHash);
 
     /**
      * Returns whether an object was validated in a specific validation group.
@@ -180,7 +177,7 @@ interface ExecutionContextInterface
      * @internal Used by the validator engine. Should not be called by user
      *           code.
      */
-    public function isGroupValidated($cacheKey, $groupHash);
+    public function isGroupValidated(string $cacheKey, string $groupHash);
 
     /**
      * Marks a constraint as validated for an object.
@@ -191,7 +188,7 @@ interface ExecutionContextInterface
      * @internal Used by the validator engine. Should not be called by user
      *           code.
      */
-    public function markConstraintAsValidated($cacheKey, $constraintHash);
+    public function markConstraintAsValidated(string $cacheKey, string $constraintHash);
 
     /**
      * Returns whether a constraint was validated for an object.
@@ -204,7 +201,7 @@ interface ExecutionContextInterface
      * @internal Used by the validator engine. Should not be called by user
      *           code.
      */
-    public function isConstraintValidated($cacheKey, $constraintHash);
+    public function isConstraintValidated(string $cacheKey, string $constraintHash);
 
     /**
      * Marks that an object was initialized.
@@ -216,7 +213,7 @@ interface ExecutionContextInterface
      *
      * @see ObjectInitializerInterface
      */
-    public function markObjectAsInitialized($cacheKey);
+    public function markObjectAsInitialized(string $cacheKey);
 
     /**
      * Returns whether an object was initialized.
@@ -230,7 +227,7 @@ interface ExecutionContextInterface
      *
      * @see ObjectInitializerInterface
      */
-    public function isObjectInitialized($cacheKey);
+    public function isObjectInitialized(string $cacheKey);
 
     /**
      * Returns the violations generated by the validator so far.
@@ -283,7 +280,7 @@ interface ExecutionContextInterface
     /**
      * Returns the validation group that is currently being validated.
      *
-     * @return string The current validation group
+     * @return string|null The current validation group
      */
     public function getGroup();
 
@@ -340,5 +337,5 @@ interface ExecutionContextInterface
      *                string if the validator is currently validating the
      *                root value of the validation graph.
      */
-    public function getPropertyPath($subPath = '');
+    public function getPropertyPath(string $subPath = '');
 }

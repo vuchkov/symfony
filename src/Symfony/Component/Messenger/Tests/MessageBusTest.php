@@ -16,6 +16,7 @@ use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBus;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Middleware\MiddlewareInterface;
+use Symfony\Component\Messenger\Middleware\StackInterface;
 use Symfony\Component\Messenger\Stamp\BusNameStamp;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\Messenger\Stamp\ReceivedStamp;
@@ -31,12 +32,10 @@ class MessageBusTest extends TestCase
         $this->assertInstanceOf(MessageBusInterface::class, $bus);
     }
 
-    /**
-     * @expectedException \TypeError
-     * @expectedExceptionMessage Invalid argument provided to "Symfony\Component\Messenger\MessageBus::dispatch()": expected object, but got string.
-     */
     public function testItDispatchInvalidMessageType()
     {
+        $this->expectException('TypeError');
+        $this->expectExceptionMessage('Invalid argument provided to "Symfony\Component\Messenger\MessageBus::dispatch()": expected object, but got string.');
         (new MessageBus())->dispatch('wrong');
     }
 
@@ -147,5 +146,45 @@ class MessageBusTest extends TestCase
     {
         $finalEnvelope = (new MessageBus())->dispatch(new Envelope(new \stdClass()), [new DelayStamp(5), new BusNameStamp('bar')]);
         $this->assertCount(2, $finalEnvelope->all());
+    }
+
+    public function provideConstructorDataStucture(): iterable
+    {
+        yield 'iterator' => [new \ArrayObject([
+            new SimpleMiddleware(),
+            new SimpleMiddleware(),
+        ])];
+
+        yield 'array' => [[
+            new SimpleMiddleware(),
+            new SimpleMiddleware(),
+        ]];
+
+        yield 'generator' => [(function (): \Generator {
+            yield new SimpleMiddleware();
+            yield new SimpleMiddleware();
+        })()];
+    }
+
+    /** @dataProvider provideConstructorDataStucture */
+    public function testConstructDataStructure(iterable $dataStructure)
+    {
+        $bus = new MessageBus($dataStructure);
+        $envelope = new Envelope(new DummyMessage('Hello'));
+        $newEnvelope = $bus->dispatch($envelope);
+        $this->assertSame($envelope->getMessage(), $newEnvelope->getMessage());
+
+        // Test rewindable capacity
+        $envelope = new Envelope(new DummyMessage('Hello'));
+        $newEnvelope = $bus->dispatch($envelope);
+        $this->assertSame($envelope->getMessage(), $newEnvelope->getMessage());
+    }
+}
+
+class SimpleMiddleware implements MiddlewareInterface
+{
+    public function handle(Envelope $envelope, StackInterface $stack): Envelope
+    {
+        return $envelope;
     }
 }

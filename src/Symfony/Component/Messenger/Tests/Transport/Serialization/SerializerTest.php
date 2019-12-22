@@ -166,7 +166,7 @@ class SerializerTest extends TestCase
         $serializer->decode($data);
     }
 
-    public function getMissingKeyTests()
+    public function getMissingKeyTests(): iterable
     {
         yield 'no_body' => [
             ['headers' => ['type' => 'bar']],
@@ -205,7 +205,7 @@ class SerializerTest extends TestCase
         ]);
 
         $encoded = $serializer->encode($envelope);
-        $this->assertNotContains('DummySymfonySerializerNonSendableStamp', print_r($encoded['headers'], true));
+        $this->assertStringNotContainsString('DummySymfonySerializerNonSendableStamp', print_r($encoded['headers'], true));
     }
 }
 class DummySymfonySerializerNonSendableStamp implements NonSendableStampInterface

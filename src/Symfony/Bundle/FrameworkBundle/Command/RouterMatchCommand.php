@@ -71,7 +71,7 @@ EOF
     /**
      * {@inheritdoc}
      */
-    protected function execute(InputInterface $input, OutputInterface $output)
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
 
@@ -113,5 +113,7 @@ EOF
 
             return 1;
         }
+
+        return 0;
     }
 }

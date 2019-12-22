@@ -12,6 +12,7 @@
 namespace Symfony\Bundle\SecurityBundle\DependencyInjection\Security\Factory;
 
 use Symfony\Component\Config\Definition\Builder\NodeDefinition;
+use Symfony\Component\DependencyInjection\Argument\IteratorArgument;
 use Symfony\Component\DependencyInjection\ChildDefinition;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
@@ -31,7 +32,7 @@ class RememberMeFactory implements SecurityFactoryInterface
         'remember_me_parameter' => '_remember_me',
     ];
 
-    public function create(ContainerBuilder $container, $id, $config, $userProvider, $defaultEntryPoint)
+    public function create(ContainerBuilder $container, string $id, array $config, ?string $userProvider, ?string $defaultEntryPoint)
     {
         // authentication provider
         $authProviderId = 'security.authentication.provider.rememberme.'.$id;
@@ -83,7 +84,11 @@ class RememberMeFactory implements SecurityFactoryInterface
                     throw new \RuntimeException('Each "security.remember_me_aware" tag must have a provider attribute.');
                 }
 
-                $userProviders[] = new Reference($attribute['provider']);
+                // context listeners don't need a provider
+                if ('none' !== $attribute['provider']) {
+                    $userProviders[] = new Reference($attribute['provider']);
+                }
+
                 $container
                     ->getDefinition($serviceId)
                     ->addMethodCall('setRememberMeServices', [new Reference($rememberMeServicesId)])
@@ -100,7 +105,7 @@ class RememberMeFactory implements SecurityFactoryInterface
             throw new \RuntimeException('You must configure at least one remember-me aware listener (such as form-login) for each firewall that has remember-me enabled.');
         }
 
-        $rememberMeServices->replaceArgument(0, array_unique($userProviders));
+        $rememberMeServices->replaceArgument(0, new IteratorArgument(array_unique($userProviders)));
 
         // remember-me listener
         $listenerId = 'security.authentication.listener.rememberme.'.$id;
@@ -144,7 +149,7 @@ class RememberMeFactory implements SecurityFactoryInterface
             if ('secure' === $name) {
                 $builder->enumNode($name)->values([true, false, 'auto'])->defaultValue('auto' === $value ? null : $value);
             } elseif ('samesite' === $name) {
-                $builder->enumNode($name)->values([null, Cookie::SAMESITE_LAX, Cookie::SAMESITE_STRICT])->defaultValue($value);
+                $builder->enumNode($name)->values([null, Cookie::SAMESITE_LAX, Cookie::SAMESITE_STRICT, Cookie::SAMESITE_NONE])->defaultValue($value);
             } elseif (\is_bool($value)) {
                 $builder->booleanNode($name)->defaultValue($value);
             } else {

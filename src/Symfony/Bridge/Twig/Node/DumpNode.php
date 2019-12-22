@@ -17,11 +17,11 @@ use Twig\Node\Node;
 /**
  * @author Julien Galenski <julien.galenski@gmail.com>
  */
-class DumpNode extends Node
+final class DumpNode extends Node
 {
     private $varPrefix;
 
-    public function __construct($varPrefix, Node $values = null, int $lineno, string $tag = null)
+    public function __construct($varPrefix, ?Node $values, int $lineno, string $tag = null)
     {
         $nodes = [];
         if (null !== $values) {
@@ -33,9 +33,9 @@ class DumpNode extends Node
     }
 
     /**
-     * {@inheritdoc}
+     * @return void
      */
-    public function compile(Compiler $compiler)
+    public function compile(Compiler $compiler): void
     {
         $compiler
             ->write("if (\$this->env->isDebug()) {\n")

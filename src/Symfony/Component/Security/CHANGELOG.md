@@ -1,9 +1,34 @@
 CHANGELOG
 =========
 
+5.1.0
+-----
+
+ * Added access decision strategy to override access decisions by voter service priority
+
 5.0.0
 -----
 
+ * Dropped support for passing more than one attribute to `AccessDecisionManager::decide()` and `AuthorizationChecker::isGranted()` (and indirectly the `is_granted()` Twig and ExpressionLanguage function):
+
+   **Before**
+   ```php
+   if ($this->authorizationChecker->isGranted(['ROLE_USER', 'ROLE_ADMIN'])) {
+       // ...
+   }
+   ```
+
+   **After**
+   ```php
+   if ($this->authorizationChecker->isGranted(new Expression("is_granted('ROLE_USER') or is_granted('ROLE_ADMIN')"))) {}
+   // or:
+   if ($this->authorizationChecker->isGranted('ROLE_USER')
+      || $this->authorizationChecker->isGranted('ROLE_ADMIN')
+   ) {}
+   ```
+ * Implementations of `Guard\AuthenticatorInterface::checkCredentials()` must return
+   a boolean value now. Please explicitly return `false` to indicate invalid credentials.
+ * The `LdapUserProvider` class has been removed, use `Symfony\Component\Ldap\Security\LdapUserProvider` instead.
  * The `FirewallMapInterface::getListeners()` method must return an array of 3 elements.
  * Removed the `ContextListener::setLogoutOnUserChange()` method.
  * Removed the `ListenerInterface`, turn your listeners into callables instead.
@@ -27,12 +52,22 @@ CHANGELOG
  * Removed `ExpressionVoter::addExpressionLanguageProvider()`
  * Made `Security::getUser()` return null when the user is not an instanceof `UserInterface`,
    use `getToken()->getUser()` instead
+ * Removed the `AuthenticationTrustResolver` constructor arguments
 
 4.4.0
 -----
 
+ * Deprecated class `LdapUserProvider`, use `Symfony\Component\Ldap\Security\LdapUserProvider` instead
  * Added method `needsRehash()` to `PasswordEncoderInterface` and `UserPasswordEncoderInterface`
  * Added `MigratingPasswordEncoder`
+ * Added and implemented `PasswordUpgraderInterface`, for opportunistic password migrations
+ * Added `Guard\PasswordAuthenticatedInterface`, an optional interface
+   for "guard" authenticators that deal with user passwords
+ * Marked all dispatched event classes as `@final`
+ * Deprecated returning a non-boolean value when implementing `Guard\AuthenticatorInterface::checkCredentials()`.
+ * Deprecated passing more than one attribute to `AccessDecisionManager::decide()` and `AuthorizationChecker::isGranted()`
+ * Added new `argon2id` encoder, undeprecated the `bcrypt` and `argon2i` ones (using `auto` is still recommended by default.)
+ * Added `AbstractListener` which replaces the deprecated `ListenerInterface`
 
 4.3.0
 -----

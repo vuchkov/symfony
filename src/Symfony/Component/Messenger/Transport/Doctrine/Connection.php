@@ -13,6 +13,7 @@ namespace Symfony\Component\Messenger\Transport\Doctrine;
 
 use Doctrine\DBAL\Connection as DBALConnection;
 use Doctrine\DBAL\DBALException;
+use Doctrine\DBAL\Driver\ResultStatement;
 use Doctrine\DBAL\Exception\TableNotFoundException;
 use Doctrine\DBAL\Query\QueryBuilder;
 use Doctrine\DBAL\Schema\Schema;
@@ -26,8 +27,6 @@ use Symfony\Component\Messenger\Exception\TransportException;
  * @author Vincent Touzet <vincent.touzet@gmail.com>
  *
  * @final
- *
- * @experimental in 4.3
  */
 class Connection
 {
@@ -52,12 +51,14 @@ class Connection
     private $configuration = [];
     private $driverConnection;
     private $schemaSynchronizer;
+    private $autoSetup;
 
     public function __construct(array $configuration, DBALConnection $driverConnection, SchemaSynchronizer $schemaSynchronizer = null)
     {
         $this->configuration = array_replace_recursive(self::DEFAULT_OPTIONS, $configuration);
         $this->driverConnection = $driverConnection;
         $this->schemaSynchronizer = $schemaSynchronizer ?? new SingleDatabaseSynchronizer($this->driverConnection);
+        $this->autoSetup = $this->configuration['auto_setup'];
     }
 
     public function getConfiguration(): array
@@ -65,7 +66,7 @@ class Connection
         return $this->configuration;
     }
 
-    public static function buildConfiguration($dsn, array $options = []): array
+    public static function buildConfiguration(string $dsn, array $options = []): array
     {
         if (false === $components = parse_url($dsn)) {
             throw new InvalidArgumentException(sprintf('The given Doctrine Messenger DSN "%s" is invalid.', $dsn));
@@ -76,22 +77,19 @@ class Connection
             parse_str($components['query'], $query);
         }
 
-        $configuration = [
-            'connection' => $components['host'],
-            'table_name' => $options['table_name'] ?? ($query['table_name'] ?? self::DEFAULT_OPTIONS['table_name']),
-            'queue_name' => $options['queue_name'] ?? ($query['queue_name'] ?? self::DEFAULT_OPTIONS['queue_name']),
-            'redeliver_timeout' => $options['redeliver_timeout'] ?? ($query['redeliver_timeout'] ?? self::DEFAULT_OPTIONS['redeliver_timeout']),
-            'auto_setup' => $options['auto_setup'] ?? ($query['auto_setup'] ?? self::DEFAULT_OPTIONS['auto_setup']),
-        ];
+        $configuration = ['connection' => $components['host']];
+        $configuration += $options + $query + self::DEFAULT_OPTIONS;
+
+        $configuration['auto_setup'] = filter_var($configuration['auto_setup'], FILTER_VALIDATE_BOOLEAN);
 
         // check for extra keys in options
-        $optionsExtraKeys = array_diff(array_keys($options), array_keys($configuration));
+        $optionsExtraKeys = array_diff(array_keys($options), array_keys(self::DEFAULT_OPTIONS));
         if (0 < \count($optionsExtraKeys)) {
             throw new InvalidArgumentException(sprintf('Unknown option found : [%s]. Allowed options are [%s]', implode(', ', $optionsExtraKeys), implode(', ', self::DEFAULT_OPTIONS)));
         }
 
         // check for extra keys in options
-        $queryExtraKeys = array_diff(array_keys($query), array_keys($configuration));
+        $queryExtraKeys = array_diff(array_keys($query), array_keys(self::DEFAULT_OPTIONS));
         if (0 < \count($queryExtraKeys)) {
             throw new InvalidArgumentException(sprintf('Unknown option found in DSN: [%s]. Allowed options are [%s]', implode(', ', $queryExtraKeys), implode(', ', self::DEFAULT_OPTIONS)));
         }
@@ -114,19 +112,25 @@ class Connection
         $queryBuilder = $this->driverConnection->createQueryBuilder()
             ->insert($this->configuration['table_name'])
             ->values([
-                'body' => ':body',
-                'headers' => ':headers',
-                'queue_name' => ':queue_name',
-                'created_at' => ':created_at',
-                'available_at' => ':available_at',
+                'body' => '?',
+                'headers' => '?',
+                'queue_name' => '?',
+                'created_at' => '?',
+                'available_at' => '?',
             ]);
 
         $this->executeQuery($queryBuilder->getSQL(), [
-            ':body' => $body,
-            ':headers' => json_encode($headers),
-            ':queue_name' => $this->configuration['queue_name'],
-            ':created_at' => self::formatDateTime($now),
-            ':available_at' => self::formatDateTime($availableAt),
+            $body,
+            json_encode($headers),
+            $this->configuration['queue_name'],
+            $now,
+            $availableAt,
+        ], [
+            null,
+            null,
+            null,
+            Type::DATETIME,
+            Type::DATETIME,
         ]);
 
         return $this->driverConnection->lastInsertId();
@@ -134,9 +138,7 @@ class Connection
 
     public function get(): ?array
     {
-        if ($this->configuration['auto_setup']) {
-            $this->setup();
-        }
+        get:
         $this->driverConnection->beginTransaction();
         try {
             $query = $this->createAvailableMessagesQueryBuilder()
@@ -146,7 +148,8 @@ class Connection
             // use SELECT ... FOR UPDATE to lock table
             $doctrineEnvelope = $this->executeQuery(
                 $query->getSQL().' '.$this->driverConnection->getDatabasePlatform()->getWriteLockSQL(),
-                $query->getParameters()
+                $query->getParameters(),
+                $query->getParameterTypes()
             )->fetch();
 
             if (false === $doctrineEnvelope) {
@@ -155,16 +158,18 @@ class Connection
                 return null;
             }
 
-            $doctrineEnvelope['headers'] = json_decode($doctrineEnvelope['headers'], true);
+            $doctrineEnvelope = $this->decodeEnvelopeHeaders($doctrineEnvelope);
 
             $queryBuilder = $this->driverConnection->createQueryBuilder()
                 ->update($this->configuration['table_name'])
-                ->set('delivered_at', ':delivered_at')
-                ->where('id = :id');
+                ->set('delivered_at', '?')
+                ->where('id = ?');
             $now = new \DateTime();
             $this->executeQuery($queryBuilder->getSQL(), [
-                ':id' => $doctrineEnvelope['id'],
-                ':delivered_at' => self::formatDateTime($now),
+                $now,
+                $doctrineEnvelope['id'],
+            ], [
+                Type::DATETIME,
             ]);
 
             $this->driverConnection->commit();
@@ -172,6 +177,11 @@ class Connection
             return $doctrineEnvelope;
         } catch (\Throwable $e) {
             $this->driverConnection->rollBack();
+
+            if ($this->autoSetup && $e instanceof TableNotFoundException) {
+                $this->setup();
+                goto get;
+            }
 
             throw $e;
         }
@@ -216,6 +226,8 @@ class Connection
         } else {
             $this->driverConnection->getConfiguration()->setFilterSchemaAssetsExpression($assetFilter);
         }
+
+        $this->autoSetup = false;
     }
 
     public function getMessageCount(): int
@@ -224,37 +236,33 @@ class Connection
             ->select('COUNT(m.id) as message_count')
             ->setMaxResults(1);
 
-        return $this->executeQuery($queryBuilder->getSQL(), $queryBuilder->getParameters())->fetchColumn();
+        return $this->executeQuery($queryBuilder->getSQL(), $queryBuilder->getParameters(), $queryBuilder->getParameterTypes())->fetchColumn();
     }
 
     public function findAll(int $limit = null): array
     {
-        if ($this->configuration['auto_setup']) {
-            $this->setup();
-        }
-
         $queryBuilder = $this->createAvailableMessagesQueryBuilder();
         if (null !== $limit) {
             $queryBuilder->setMaxResults($limit);
         }
 
-        return $this->executeQuery($queryBuilder->getSQL(), $queryBuilder->getParameters())->fetchAll();
+        $data = $this->executeQuery($queryBuilder->getSQL(), $queryBuilder->getParameters(), $queryBuilder->getParameterTypes())->fetchAll();
+
+        return array_map(function ($doctrineEnvelope) {
+            return $this->decodeEnvelopeHeaders($doctrineEnvelope);
+        }, $data);
     }
 
     public function find($id): ?array
     {
-        if ($this->configuration['auto_setup']) {
-            $this->setup();
-        }
-
         $queryBuilder = $this->createQueryBuilder()
-            ->where('m.id = :id');
+            ->where('m.id = ?');
 
         $data = $this->executeQuery($queryBuilder->getSQL(), [
-            'id' => $id,
+            $id,
         ])->fetch();
 
-        return false === $data ? null : $data;
+        return false === $data ? null : $this->decodeEnvelopeHeaders($data);
     }
 
     private function createAvailableMessagesQueryBuilder(): QueryBuilder
@@ -263,13 +271,16 @@ class Connection
         $redeliverLimit = (clone $now)->modify(sprintf('-%d seconds', $this->configuration['redeliver_timeout']));
 
         return $this->createQueryBuilder()
-            ->where('m.delivered_at is null OR m.delivered_at < :redeliver_limit')
-            ->andWhere('m.available_at <= :now')
-            ->andWhere('m.queue_name = :queue_name')
+            ->where('m.delivered_at is null OR m.delivered_at < ?')
+            ->andWhere('m.available_at <= ?')
+            ->andWhere('m.queue_name = ?')
             ->setParameters([
-                ':now' => self::formatDateTime($now),
-                ':queue_name' => $this->configuration['queue_name'],
-                ':redeliver_limit' => self::formatDateTime($redeliverLimit),
+                $redeliverLimit,
+                $now,
+                $this->configuration['queue_name'],
+            ], [
+                Type::DATETIME,
+                Type::DATETIME,
             ]);
     }
 
@@ -280,22 +291,20 @@ class Connection
             ->from($this->configuration['table_name'], 'm');
     }
 
-    private function executeQuery(string $sql, array $parameters = [])
+    private function executeQuery(string $sql, array $parameters = [], array $types = []): ResultStatement
     {
-        $stmt = null;
         try {
-            $stmt = $this->driverConnection->prepare($sql);
-            $stmt->execute($parameters);
+            $stmt = $this->driverConnection->executeQuery($sql, $parameters, $types);
         } catch (TableNotFoundException $e) {
+            if ($this->driverConnection->isTransactionActive()) {
+                throw $e;
+            }
+
             // create table
-            if (!$this->driverConnection->isTransactionActive() && $this->configuration['auto_setup']) {
+            if ($this->autoSetup) {
                 $this->setup();
             }
-            // statement not prepared ? SQLite throw on exception on prepare if the table does not exist
-            if (null === $stmt) {
-                $stmt = $this->driverConnection->prepare($sql);
-            }
-            $stmt->execute($parameters);
+            $stmt = $this->driverConnection->executeQuery($sql, $parameters, $types);
         }
 
         return $stmt;
@@ -303,7 +312,7 @@ class Connection
 
     private function getSchema(): Schema
     {
-        $schema = new Schema();
+        $schema = new Schema([], [], $this->driverConnection->getSchemaManager()->createSchemaConfig());
         $table = $schema->createTable($this->configuration['table_name']);
         $table->addColumn('id', Type::BIGINT)
             ->setAutoincrement(true)
@@ -328,8 +337,10 @@ class Connection
         return $schema;
     }
 
-    public static function formatDateTime(\DateTimeInterface $dateTime): string
+    private function decodeEnvelopeHeaders(array $doctrineEnvelope): array
     {
-        return $dateTime->format('Y-m-d\TH:i:s');
+        $doctrineEnvelope['headers'] = json_decode($doctrineEnvelope['headers'], true);
+
+        return $doctrineEnvelope;
     }
 }

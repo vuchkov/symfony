@@ -54,8 +54,43 @@ Dotenv
 EventDispatcher
 ---------------
 
- * The signature of the `EventDispatcherInterface::dispatch()` method should be updated to `dispatch($event, string $eventName = null)`, not doing so is deprecated
+ * The signature of the `EventDispatcherInterface::dispatch()` method has been updated, consider using the new signature `dispatch($event, string $eventName = null)` instead of the old signature `dispatch($eventName, $event)` that is deprecated
+
+   You have to swap arguments when calling `dispatch()`:
+
+   Before:
+   ```php
+   $this->eventDispatcher->dispatch(Events::My_EVENT, $event);
+   ```
+
+   After:
+   ```php
+   $this->eventDispatcher->dispatch($event, Events::My_EVENT);
+   ```
+
+   If your bundle or package needs to provide compatibility with the previous way of using the dispatcher, you can use `Symfony\Component\EventDispatcher\LegacyEventDispatcherProxy::decorate()` to ease upgrades:
+
+   Before:
+   ```php
+   public function __construct(EventDispatcherInterface $eventDispatcher) {
+       $this->eventDispatcher = $eventDispatcher;
+   }
+   ```
+
+   After:
+   ```php
+   public function __construct(EventDispatcherInterface $eventDispatcher) {
+       $this->eventDispatcher = LegacyEventDispatcherProxy::decorate($eventDispatcher);
+   }
+   ```
+
  * The `Event` class has been deprecated, use `Symfony\Contracts\EventDispatcher\Event` instead
+
+Filesystem
+----------
+
+ * Support for passing arrays to `Filesystem::dumpFile()` is deprecated.
+ * Support for passing arrays to `Filesystem::appendToFile()` is deprecated.
 
 Form
 ----
@@ -71,6 +106,7 @@ Form
 FrameworkBundle
 ---------------
 
+ * Deprecated the `framework.templating` option, configure the Twig bundle instead.
  * Not passing the project directory to the constructor of the `AssetsInstallCommand` is deprecated. This argument will
    be mandatory in 5.0.
  * Deprecated the "Psr\SimpleCache\CacheInterface" / "cache.app.simple" service, use "Symfony\Contracts\Cache\CacheInterface" / "cache.app" instead.
@@ -173,11 +209,6 @@ Security
  * Not implementing the methods `__serialize` and `__unserialize` in classes implementing
    the `TokenInterface` is deprecated
 
-SecurityBundle
---------------
-
- * Configuring encoders using `argon2i` or `bcrypt` as algorithm has been deprecated, use `auto` instead.
-
 TwigBridge
 ----------
 
@@ -204,6 +235,28 @@ Workflow
       workflows:
           article:
               initial_marking: [draft]
+   ```
+
+ * `WorkflowInterface::apply()` will have a third argument in Symfony 5.0.
+
+   Before:
+   ```php
+   class MyWorkflow implements WorkflowInterface
+   {
+       public function apply($subject, $transitionName)
+       {
+       }
+   }
+   ```
+
+   After:
+   ```php
+   class MyWorkflow implements WorkflowInterface
+   {
+       public function apply($subject, $transitionName, array $context = [])
+       {
+       }
+   }
    ```
 
  * `MarkingStoreInterface::setMarking()` will have a third argument in Symfony 5.0.
@@ -234,10 +287,10 @@ Workflow
    ```yaml
    framework:
        workflows:
-           type: workflow
            article:
+               type: workflow
                marking_store:
-                   type: multiple
+                   type: multiple_state
                    arguments: states
    ```
 
@@ -245,8 +298,8 @@ Workflow
    ```yaml
    framework:
        workflows:
-           type: workflow
            article:
+               type: workflow
                marking_store:
                    type: method
                    property: states
@@ -267,8 +320,8 @@ Workflow
    ```yaml
    framework:
        workflows:
-           type: state_machine
            article:
+               type: state_machine
                marking_store:
                    type: method
                    property: state
@@ -296,6 +349,8 @@ Workflow
                    # type: single_state # Since the single_state marking store is deprecated, use method instead
                    type: method
    ```
+
+ * Using `DefinitionBuilder::setInitialPlace()` is deprecated, use `DefinitionBuilder::setInitialPlaces()` instead.
 
 Yaml
 ----

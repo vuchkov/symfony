@@ -29,8 +29,7 @@ class HttpCache extends BaseHttpCache
     protected $kernel;
 
     /**
-     * @param KernelInterface $kernel   A KernelInterface instance
-     * @param string          $cacheDir The cache directory (default used if null)
+     * @param string $cacheDir The cache directory (default used if null)
      */
     public function __construct(KernelInterface $kernel, string $cacheDir = null)
     {
@@ -41,20 +40,14 @@ class HttpCache extends BaseHttpCache
     }
 
     /**
-     * Forwards the Request to the backend and returns the Response.
-     *
-     * @param Request  $request A Request instance
-     * @param bool     $raw     Whether to catch exceptions or not
-     * @param Response $entry   A Response instance (the stale entry if present, null otherwise)
-     *
-     * @return Response A Response instance
+     * {@inheritdoc}
      */
-    protected function forward(Request $request, $raw = false, Response $entry = null)
+    protected function forward(Request $request, bool $catch = false, Response $entry = null)
     {
         $this->getKernel()->boot();
         $this->getKernel()->getContainer()->set('cache', $this);
 
-        return parent::forward($request, $raw, $entry);
+        return parent::forward($request, $catch, $entry);
     }
 
     /**

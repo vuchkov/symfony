@@ -87,15 +87,8 @@ class GuardAuthenticatorHandlerTest extends TestCase
     /**
      * @dataProvider getTokenClearingTests
      */
-    public function testHandleAuthenticationClearsToken($tokenClass, $tokenProviderKey, $actualProviderKey)
+    public function testHandleAuthenticationClearsToken($tokenProviderKey, $actualProviderKey)
     {
-        $token = $this->getMockBuilder($tokenClass)
-            ->disableOriginalConstructor()
-            ->getMock();
-        $token->expects($this->any())
-            ->method('getProviderKey')
-            ->willReturn($tokenProviderKey);
-
         $this->tokenStorage->expects($this->never())
             ->method('setToken')
             ->with(null);
@@ -115,10 +108,10 @@ class GuardAuthenticatorHandlerTest extends TestCase
     public function getTokenClearingTests()
     {
         $tests = [];
-        // correct token class and matching firewall => clear the token
-        $tests[] = ['Symfony\Component\Security\Guard\Token\PostAuthenticationGuardToken', 'the_firewall_key', 'the_firewall_key'];
-        $tests[] = ['Symfony\Component\Security\Guard\Token\PostAuthenticationGuardToken', 'the_firewall_key', 'different_key'];
-        $tests[] = ['Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken', 'the_firewall_key', 'the_firewall_key'];
+        // matching firewall => clear the token
+        $tests[] = ['the_firewall_key', 'the_firewall_key'];
+        $tests[] = ['the_firewall_key', 'different_key'];
+        $tests[] = ['the_firewall_key', 'the_firewall_key'];
 
         return $tests;
     }
@@ -160,7 +153,7 @@ class GuardAuthenticatorHandlerTest extends TestCase
         $handler->authenticateWithToken($this->token, $this->request, 'some_provider_key');
     }
 
-    protected function setUp()
+    protected function setUp(): void
     {
         $this->tokenStorage = $this->getMockBuilder(TokenStorageInterface::class)->getMock();
         $this->dispatcher = $this->getMockBuilder(EventDispatcherInterface::class)->getMock();
@@ -170,7 +163,7 @@ class GuardAuthenticatorHandlerTest extends TestCase
         $this->guardAuthenticator = $this->getMockBuilder(AuthenticatorInterface::class)->getMock();
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         $this->tokenStorage = null;
         $this->dispatcher = null;

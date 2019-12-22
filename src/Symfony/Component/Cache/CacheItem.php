@@ -60,8 +60,10 @@ final class CacheItem implements ItemInterface
 
     /**
      * {@inheritdoc}
+     *
+     * @return $this
      */
-    public function set($value)
+    public function set($value): self
     {
         $this->value = $value;
 
@@ -70,8 +72,10 @@ final class CacheItem implements ItemInterface
 
     /**
      * {@inheritdoc}
+     *
+     * @return $this
      */
-    public function expiresAt($expiration)
+    public function expiresAt($expiration): self
     {
         if (null === $expiration) {
             $this->expiry = $this->defaultLifetime > 0 ? microtime(true) + $this->defaultLifetime : null;
@@ -86,8 +90,10 @@ final class CacheItem implements ItemInterface
 
     /**
      * {@inheritdoc}
+     *
+     * @return $this
      */
-    public function expiresAfter($time)
+    public function expiresAfter($time): self
     {
         if (null === $time) {
             $this->expiry = $this->defaultLifetime > 0 ? microtime(true) + $this->defaultLifetime : null;
@@ -123,8 +129,8 @@ final class CacheItem implements ItemInterface
             if ('' === $tag) {
                 throw new InvalidArgumentException('Cache tag length must be greater than zero');
             }
-            if (false !== strpbrk($tag, '{}()/\@:')) {
-                throw new InvalidArgumentException(sprintf('Cache tag "%s" contains reserved characters {}()/\@:', $tag));
+            if (false !== strpbrk($tag, self::RESERVED_CHARACTERS)) {
+                throw new InvalidArgumentException(sprintf('Cache tag "%s" contains reserved characters %s', $tag, self::RESERVED_CHARACTERS));
             }
             $this->newMetadata[self::METADATA_TAGS][$tag] = $tag;
         }
@@ -155,8 +161,8 @@ final class CacheItem implements ItemInterface
         if ('' === $key) {
             throw new InvalidArgumentException('Cache key length must be greater than zero');
         }
-        if (false !== strpbrk($key, '{}()/\@:')) {
-            throw new InvalidArgumentException(sprintf('Cache key "%s" contains reserved characters {}()/\@:', $key));
+        if (false !== strpbrk($key, self::RESERVED_CHARACTERS)) {
+            throw new InvalidArgumentException(sprintf('Cache key "%s" contains reserved characters %s', $key, self::RESERVED_CHARACTERS));
         }
 
         return $key;
@@ -167,7 +173,7 @@ final class CacheItem implements ItemInterface
      *
      * @internal
      */
-    public static function log(LoggerInterface $logger = null, $message, $context = [])
+    public static function log(?LoggerInterface $logger, string $message, array $context = [])
     {
         if ($logger) {
             $logger->warning($message, $context);

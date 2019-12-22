@@ -16,16 +16,15 @@
         }
     ],
     "require": {
-        "php": "^7.2.9",
+        "php": "^7.2.5",
         "symfony/polyfill-ctype": "~1.8",
         "symfony/polyfill-mbstring": "~1.0",
-        "symfony/translation-contracts": "^1.1"
+        "symfony/translation-contracts": "^1.1|^2"
     },
     "require-dev": {
         "symfony/http-client": "^4.4|^5.0",
         "symfony/http-foundation": "^4.4|^5.0",
         "symfony/http-kernel": "^4.4|^5.0",
-        "symfony/var-dumper": "^4.4|^5.0",
         "symfony/intl": "^4.4|^5.0",
         "symfony/yaml": "^4.4|^5.0",
         "symfony/config": "^4.4|^5.0",
@@ -35,11 +34,12 @@
         "symfony/property-access": "^4.4|^5.0",
         "symfony/property-info": "^4.4|^5.0",
         "symfony/translation": "^4.4|^5.0",
-        "doctrine/annotations": "~1.0",
+        "doctrine/annotations": "~1.7",
         "doctrine/cache": "~1.0",
-        "egulias/email-validator": "^1.2.8|~2.0"
+        "egulias/email-validator": "^2.1.10"
     },
     "conflict": {
+        "doctrine/lexer": "<1.0.2",
         "phpunit/phpunit": "<5.4.3",
         "symfony/dependency-injection": "<4.4",
         "symfony/http-kernel": "<4.4",
@@ -48,9 +48,9 @@
         "symfony/yaml": "<4.4"
     },
     "suggest": {
-        "psr/cache-implementation": "For using the metadata cache.",
+        "psr/cache-implementation": "For using the mapping cache.",
         "doctrine/annotations": "For using the annotation mapping. You will also need doctrine/cache.",
-        "doctrine/cache": "For using the default cached annotation reader and metadata cache.",
+        "doctrine/cache": "For using the default cached annotation reader.",
         "symfony/http-foundation": "",
         "symfony/intl": "",
         "symfony/translation": "For translating validation errors.",
@@ -70,7 +70,7 @@
     "minimum-stability": "dev",
     "extra": {
         "branch-alias": {
-            "dev-master": "5.0-dev"
+            "dev-master": "5.1-dev"
         }
     }
 }

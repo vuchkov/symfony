@@ -19,7 +19,7 @@ class NumberTypeTest extends BaseTypeTest
 
     private $defaultLocale;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
 
@@ -30,7 +30,7 @@ class NumberTypeTest extends BaseTypeTest
         \Locale::setDefault('de_DE');
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         parent::tearDown();
 
@@ -75,6 +75,28 @@ class NumberTypeTest extends BaseTypeTest
         $form->setData('12345.67890');
 
         $this->assertSame('12345,68', $form->createView()->vars['value']);
+    }
+
+    public function testStringInputWithFloatData(): void
+    {
+        $this->expectException('Symfony\Component\Form\Exception\TransformationFailedException');
+        $this->expectExceptionMessage('Expected a numeric string.');
+
+        $this->factory->create(static::TESTED_TYPE, 12345.6789, [
+            'input' => 'string',
+            'scale' => 2,
+        ]);
+    }
+
+    public function testStringInputWithIntData(): void
+    {
+        $this->expectException('Symfony\Component\Form\Exception\TransformationFailedException');
+        $this->expectExceptionMessage('Expected a numeric string.');
+
+        $this->factory->create(static::TESTED_TYPE, 12345, [
+            'input' => 'string',
+            'scale' => 2,
+        ]);
     }
 
     public function testDefaultFormattingWithRounding(): void
@@ -155,11 +177,9 @@ class NumberTypeTest extends BaseTypeTest
         $this->assertSame('12345.55', $form->getViewData());
     }
 
-    /**
-     * @expectedException \Symfony\Component\Form\Exception\LogicException
-     */
     public function testGroupingNotAllowedWithHtml5Widget()
     {
+        $this->expectException('Symfony\Component\Form\Exception\LogicException');
         $this->factory->create(static::TESTED_TYPE, null, [
             'grouping' => true,
             'html5' => true,

@@ -66,7 +66,7 @@ class KernelBrowser extends HttpKernelBrowser
      */
     public function getProfile()
     {
-        if (!$this->kernel->getContainer()->has('profiler')) {
+        if (null === $this->response || !$this->kernel->getContainer()->has('profiler')) {
             return false;
         }
 
@@ -169,7 +169,7 @@ class KernelBrowser extends HttpKernelBrowser
         foreach (get_declared_classes() as $class) {
             if (0 === strpos($class, 'ComposerAutoloaderInit')) {
                 $r = new \ReflectionClass($class);
-                $file = \dirname(\dirname($r->getFileName())).'/autoload.php';
+                $file = \dirname($r->getFileName(), 2).'/autoload.php';
                 if (file_exists($file)) {
                     $requires .= 'require_once '.var_export($file, true).";\n";
                 }

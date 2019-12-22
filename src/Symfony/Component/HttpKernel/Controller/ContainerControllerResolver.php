@@ -32,7 +32,7 @@ class ContainerControllerResolver extends ControllerResolver
         parent::__construct($logger);
     }
 
-    protected function createController($controller)
+    protected function createController(string $controller)
     {
         if (1 === substr_count($controller, ':')) {
             $controller = str_replace(':', '::', $controller);
@@ -45,8 +45,10 @@ class ContainerControllerResolver extends ControllerResolver
     /**
      * {@inheritdoc}
      */
-    protected function instantiateController($class)
+    protected function instantiateController(string $class)
     {
+        $class = ltrim($class, '\\');
+
         if ($this->container->has($class)) {
             return $this->container->get($class);
         }
@@ -59,7 +61,7 @@ class ContainerControllerResolver extends ControllerResolver
         $this->throwExceptionIfControllerWasRemoved($class, $e);
 
         if ($e instanceof \ArgumentCountError) {
-            throw new \InvalidArgumentException(sprintf('Controller "%s" has required constructor arguments and does not exist in the container. Did you forget to define such a service?', $class), 0, $e);
+            throw new \InvalidArgumentException(sprintf('Controller "%s" has required constructor arguments and does not exist in the container. Did you forget to define the controller as a service?', $class), 0, $e);
         }
 
         throw new \InvalidArgumentException(sprintf('Controller "%s" does neither exist as service nor as class', $class), 0, $e);

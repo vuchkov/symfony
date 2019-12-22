@@ -118,20 +118,6 @@ class CannotBeAutowired
     }
 }
 
-class CannotBeAutowiredForwardOrder
-{
-    public function __construct(CollisionA $a, CollisionInterface $b, CollisionB $c)
-    {
-    }
-}
-
-class CannotBeAutowiredReverseOrder
-{
-    public function __construct(CollisionA $a, CollisionB $c, CollisionInterface $b)
-    {
-    }
-}
-
 class Lille
 {
 }
@@ -293,7 +279,7 @@ class Wither
      * @required
      * @return static
      */
-    public function withFoo1(Foo $foo)
+    public function withFoo1(Foo $foo): self
     {
         return $this->withFoo2($foo);
     }
@@ -302,7 +288,7 @@ class Wither
      * @required
      * @return static
      */
-    public function withFoo2(Foo $foo)
+    public function withFoo2(Foo $foo): self
     {
         $new = clone $this;
         $new->foo = $foo;

@@ -21,13 +21,11 @@ class Lexer
     /**
      * Tokenizes an expression.
      *
-     * @param string $expression The expression to tokenize
-     *
      * @return TokenStream A token stream instance
      *
      * @throws SyntaxError
      */
-    public function tokenize($expression)
+    public function tokenize(string $expression)
     {
         $expression = str_replace(["\r", "\n", "\t", "\v", "\f"], ' ', $expression);
         $cursor = 0;
@@ -42,7 +40,7 @@ class Lexer
                 continue;
             }
 
-            if (preg_match('/[0-9]+(?:\.[0-9]+)?/A', $expression, $match, 0, $cursor)) {
+            if (preg_match('/[0-9]+(?:\.[0-9]+)?([Ee][\+\-][0-9]+)?/A', $expression, $match, 0, $cursor)) {
                 // numbers
                 $number = (float) $match[0];  // floats
                 if (preg_match('/^[0-9]+$/', $match[0]) && $number <= PHP_INT_MAX) {

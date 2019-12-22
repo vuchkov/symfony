@@ -12,7 +12,12 @@
 namespace Symfony\Bundle\FrameworkBundle\Tests\Kernel;
 
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Extension\ExtensionInterface;
+use Symfony\Component\DependencyInjection\Loader\ClosureLoader;
 use Symfony\Component\HttpFoundation\Request;
+
+require_once __DIR__.'/flex-style/src/FlexStyleMicroKernel.php';
 
 class MicroKernelTraitTest extends TestCase
 {
@@ -38,5 +43,30 @@ class MicroKernelTraitTest extends TestCase
         $response = $kernel->handle($request);
 
         $this->assertSame('It\'s dangerous to go alone. Take this ⚔', $response->getContent());
+    }
+
+    public function testRoutingRouteLoaderTagIsAdded()
+    {
+        $frameworkExtension = $this->createMock(ExtensionInterface::class);
+        $frameworkExtension
+            ->expects($this->atLeastOnce())
+            ->method('getAlias')
+            ->willReturn('framework');
+        $container = new ContainerBuilder();
+        $container->registerExtension($frameworkExtension);
+        $kernel = new ConcreteMicroKernel('test', false);
+        $kernel->registerContainerConfiguration(new ClosureLoader($container));
+        $this->assertTrue($container->getDefinition('kernel')->hasTag('routing.route_loader'));
+    }
+
+    public function testFlexStyle()
+    {
+        $kernel = new FlexStyleMicroKernel('test', false);
+        $kernel->boot();
+
+        $request = Request::create('/');
+        $response = $kernel->handle($request);
+
+        $this->assertEquals('Have a great day!', $response->getContent());
     }
 }

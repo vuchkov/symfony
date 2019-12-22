@@ -21,7 +21,7 @@ class ResolveParameterPlaceHoldersPassTest extends TestCase
     private $container;
     private $fooDefinition;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         $this->compilerPass = new ResolveParameterPlaceHoldersPass();
         $this->container = $this->createContainerBuilder();
@@ -71,7 +71,7 @@ class ResolveParameterPlaceHoldersPassTest extends TestCase
         $this->assertSame($this->container->getParameterBag()->resolveValue('%env(BAZ)%'), $boundValue);
     }
 
-    private function createContainerBuilder()
+    private function createContainerBuilder(): ContainerBuilder
     {
         $containerBuilder = new ContainerBuilder();
 

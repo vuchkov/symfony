@@ -24,13 +24,6 @@ class PropertyInfoCacheExtractor implements PropertyInfoExtractorInterface, Prop
 {
     private $propertyInfoExtractor;
     private $cacheItemPool;
-
-    /**
-     * A cache of property information, first keyed by the method called and
-     * then by the serialized method arguments.
-     *
-     * @var array
-     */
     private $arrayCache = [];
 
     public function __construct(PropertyInfoExtractorInterface $propertyInfoExtractor, CacheItemPoolInterface $cacheItemPool)
@@ -42,7 +35,7 @@ class PropertyInfoCacheExtractor implements PropertyInfoExtractorInterface, Prop
     /**
      * {@inheritdoc}
      */
-    public function isReadable($class, $property, array $context = [])
+    public function isReadable(string $class, string $property, array $context = []): ?bool
     {
         return $this->extract('isReadable', [$class, $property, $context]);
     }
@@ -50,7 +43,7 @@ class PropertyInfoCacheExtractor implements PropertyInfoExtractorInterface, Prop
     /**
      * {@inheritdoc}
      */
-    public function isWritable($class, $property, array $context = [])
+    public function isWritable(string $class, string $property, array $context = []): ?bool
     {
         return $this->extract('isWritable', [$class, $property, $context]);
     }
@@ -58,7 +51,7 @@ class PropertyInfoCacheExtractor implements PropertyInfoExtractorInterface, Prop
     /**
      * {@inheritdoc}
      */
-    public function getShortDescription($class, $property, array $context = [])
+    public function getShortDescription(string $class, string $property, array $context = []): ?string
     {
         return $this->extract('getShortDescription', [$class, $property, $context]);
     }
@@ -66,7 +59,7 @@ class PropertyInfoCacheExtractor implements PropertyInfoExtractorInterface, Prop
     /**
      * {@inheritdoc}
      */
-    public function getLongDescription($class, $property, array $context = [])
+    public function getLongDescription(string $class, string $property, array $context = []): ?string
     {
         return $this->extract('getLongDescription', [$class, $property, $context]);
     }
@@ -74,7 +67,7 @@ class PropertyInfoCacheExtractor implements PropertyInfoExtractorInterface, Prop
     /**
      * {@inheritdoc}
      */
-    public function getProperties($class, array $context = [])
+    public function getProperties(string $class, array $context = []): ?array
     {
         return $this->extract('getProperties', [$class, $context]);
     }
@@ -82,7 +75,7 @@ class PropertyInfoCacheExtractor implements PropertyInfoExtractorInterface, Prop
     /**
      * {@inheritdoc}
      */
-    public function getTypes($class, $property, array $context = [])
+    public function getTypes(string $class, string $property, array $context = []): ?array
     {
         return $this->extract('getTypes', [$class, $property, $context]);
     }
@@ -110,34 +103,22 @@ class PropertyInfoCacheExtractor implements PropertyInfoExtractorInterface, Prop
         }
 
         // Calling rawurlencode escapes special characters not allowed in PSR-6's keys
-        $encodedMethod = rawurlencode($method);
-        if (\array_key_exists($encodedMethod, $this->arrayCache) && \array_key_exists($serializedArguments, $this->arrayCache[$encodedMethod])) {
-            return $this->arrayCache[$encodedMethod][$serializedArguments];
+        $key = rawurlencode($method.'.'.$serializedArguments);
+
+        if (\array_key_exists($key, $this->arrayCache)) {
+            return $this->arrayCache[$key];
         }
 
-        $item = $this->cacheItemPool->getItem($encodedMethod);
+        $item = $this->cacheItemPool->getItem($key);
 
-        $data = $item->get();
         if ($item->isHit()) {
-            $this->arrayCache[$encodedMethod] = $data[$encodedMethod];
-            // Only match if the specific arguments have been cached.
-            if (\array_key_exists($serializedArguments, $data[$encodedMethod])) {
-                return $this->arrayCache[$encodedMethod][$serializedArguments];
-            }
-        }
-
-        // It's possible that the method has been called, but with different
-        // arguments, in which case $data will already be initialized.
-        if (!$data) {
-            $data = [];
+            return $this->arrayCache[$key] = $item->get();
         }
 
         $value = $this->propertyInfoExtractor->{$method}(...$arguments);
-        $data[$encodedMethod][$serializedArguments] = $value;
-        $this->arrayCache[$encodedMethod][$serializedArguments] = $value;
-        $item->set($data);
+        $item->set($value);
         $this->cacheItemPool->save($item);
 
-        return $this->arrayCache[$encodedMethod][$serializedArguments];
+        return $this->arrayCache[$key] = $value;
     }
 }

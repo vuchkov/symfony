@@ -34,11 +34,11 @@ final class SodiumPasswordEncoder implements PasswordEncoderInterface, SelfSalti
             throw new LogicException('Libsodium is not available. You should either install the sodium extension, upgrade to PHP 7.2+ or use a different encoder.');
         }
 
-        $this->opsLimit = $opsLimit ?? max(6, \defined('SODIUM_CRYPTO_PWHASH_OPSLIMIT_MODERATE') ? \SODIUM_CRYPTO_PWHASH_OPSLIMIT_MODERATE : 6);
+        $this->opsLimit = $opsLimit ?? max(4, \defined('SODIUM_CRYPTO_PWHASH_OPSLIMIT_INTERACTIVE') ? \SODIUM_CRYPTO_PWHASH_OPSLIMIT_INTERACTIVE : 4);
         $this->memLimit = $memLimit ?? max(64 * 1024 * 1024, \defined('SODIUM_CRYPTO_PWHASH_MEMLIMIT_INTERACTIVE') ? \SODIUM_CRYPTO_PWHASH_MEMLIMIT_INTERACTIVE : 64 * 1024 * 2014);
 
-        if (2 > $this->opsLimit) {
-            throw new \InvalidArgumentException('$opsLimit must be 2 or greater.');
+        if (3 > $this->opsLimit) {
+            throw new \InvalidArgumentException('$opsLimit must be 3 or greater.');
         }
 
         if (10 * 1024 > $this->memLimit) {
@@ -48,21 +48,13 @@ final class SodiumPasswordEncoder implements PasswordEncoderInterface, SelfSalti
 
     public static function isSupported(): bool
     {
-        if (\extension_loaded('libsodium') || \function_exists('sodium_crypto_pwhash_str')) {
-            return true;
-        }
-
-        if (class_exists('ParagonIE_Sodium_Compat') && method_exists('ParagonIE_Sodium_Compat', 'crypto_pwhash_is_available')) {
-            return \ParagonIE_Sodium_Compat::crypto_pwhash_is_available();
-        }
-
-        return false;
+        return version_compare(\extension_loaded('sodium') ? \SODIUM_LIBRARY_VERSION : phpversion('libsodium'), '1.0.14', '>=');
     }
 
     /**
      * {@inheritdoc}
      */
-    public function encodePassword($raw, $salt): string
+    public function encodePassword(string $raw, ?string $salt): string
     {
         if (\strlen($raw) > self::MAX_PASSWORD_LENGTH) {
             throw new BadCredentialsException('Invalid password.');
@@ -82,15 +74,15 @@ final class SodiumPasswordEncoder implements PasswordEncoderInterface, SelfSalti
     /**
      * {@inheritdoc}
      */
-    public function isPasswordValid($encoded, $raw, $salt): bool
+    public function isPasswordValid(string $encoded, string $raw, ?string $salt): bool
     {
         if (\strlen($raw) > self::MAX_PASSWORD_LENGTH) {
             return false;
         }
 
-        if (72 >= \strlen($raw) && 0 === strpos($encoded, '$2')) {
-            // Accept validating BCrypt passwords for seamless migrations
-            return password_verify($raw, $encoded);
+        if (0 !== strpos($encoded, '$argon')) {
+            // Accept validating non-argon passwords for seamless migrations
+            return (72 >= \strlen($raw) || 0 !== strpos($encoded, '$2')) && password_verify($raw, $encoded);
         }
 
         if (\function_exists('sodium_crypto_pwhash_str_verify')) {
@@ -101,7 +93,7 @@ final class SodiumPasswordEncoder implements PasswordEncoderInterface, SelfSalti
             return \Sodium\crypto_pwhash_str_verify($encoded, $raw);
         }
 
-        throw new LogicException('Libsodium is not available. You should either install the sodium extension, upgrade to PHP 7.2+ or use a different encoder.');
+        return false;
     }
 
     /**

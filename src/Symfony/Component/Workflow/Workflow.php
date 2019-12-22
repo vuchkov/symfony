@@ -22,7 +22,7 @@ use Symfony\Component\Workflow\Exception\LogicException;
 use Symfony\Component\Workflow\Exception\NotEnabledTransitionException;
 use Symfony\Component\Workflow\Exception\UndefinedTransitionException;
 use Symfony\Component\Workflow\MarkingStore\MarkingStoreInterface;
-use Symfony\Component\Workflow\MarkingStore\MultipleStateMarkingStore;
+use Symfony\Component\Workflow\MarkingStore\MethodMarkingStore;
 use Symfony\Component\Workflow\Metadata\MetadataStoreInterface;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
@@ -41,7 +41,7 @@ class Workflow implements WorkflowInterface
     public function __construct(Definition $definition, MarkingStoreInterface $markingStore = null, EventDispatcherInterface $dispatcher = null, string $name = 'unnamed')
     {
         $this->definition = $definition;
-        $this->markingStore = $markingStore ?: new MultipleStateMarkingStore();
+        $this->markingStore = $markingStore ?: new MethodMarkingStore();
         $this->dispatcher = $dispatcher;
         $this->name = $name;
     }
@@ -49,7 +49,7 @@ class Workflow implements WorkflowInterface
     /**
      * {@inheritdoc}
      */
-    public function getMarking($subject)
+    public function getMarking(object $subject)
     {
         $marking = $this->markingStore->getMarking($subject);
 
@@ -91,7 +91,7 @@ class Workflow implements WorkflowInterface
     /**
      * {@inheritdoc}
      */
-    public function can($subject, $transitionName)
+    public function can(object $subject, string $transitionName)
     {
         $transitions = $this->definition->getTransitions();
         $marking = $this->getMarking($subject);
@@ -114,7 +114,7 @@ class Workflow implements WorkflowInterface
     /**
      * {@inheritdoc}
      */
-    public function buildTransitionBlockerList($subject, string $transitionName): TransitionBlockerList
+    public function buildTransitionBlockerList(object $subject, string $transitionName): TransitionBlockerList
     {
         $transitions = $this->definition->getTransitions();
         $marking = $this->getMarking($subject);
@@ -150,29 +150,51 @@ class Workflow implements WorkflowInterface
     /**
      * {@inheritdoc}
      */
-    public function apply($subject, $transitionName, array $context = [])
+    public function apply(object $subject, string $transitionName, array $context = [])
     {
         $marking = $this->getMarking($subject);
 
-        $transitionBlockerList = null;
-        $applied = false;
-        $approvedTransitionQueue = [];
+        $transitionExist = false;
+        $approvedTransitions = [];
+        $bestTransitionBlockerList = null;
 
         foreach ($this->definition->getTransitions() as $transition) {
             if ($transition->getName() !== $transitionName) {
                 continue;
             }
 
-            $transitionBlockerList = $this->buildTransitionBlockerListForTransition($subject, $marking, $transition);
-            if (!$transitionBlockerList->isEmpty()) {
+            $transitionExist = true;
+
+            $tmpTransitionBlockerList = $this->buildTransitionBlockerListForTransition($subject, $marking, $transition);
+
+            if ($tmpTransitionBlockerList->isEmpty()) {
+                $approvedTransitions[] = $transition;
                 continue;
             }
-            $approvedTransitionQueue[] = $transition;
+
+            if (!$bestTransitionBlockerList) {
+                $bestTransitionBlockerList = $tmpTransitionBlockerList;
+                continue;
+            }
+
+            // We prefer to return transitions blocker by something else than
+            // marking. Because it means the marking was OK. Transitions are
+            // deterministic: it's not possible to have many transitions enabled
+            // at the same time that match the same marking with the same name
+            if (!$tmpTransitionBlockerList->has(TransitionBlocker::BLOCKED_BY_MARKING)) {
+                $bestTransitionBlockerList = $tmpTransitionBlockerList;
+            }
         }
 
-        foreach ($approvedTransitionQueue as $transition) {
-            $applied = true;
+        if (!$transitionExist) {
+            throw new UndefinedTransitionException($subject, $transitionName, $this, $context);
+        }
 
+        if (!$approvedTransitions) {
+            throw new NotEnabledTransitionException($subject, $transitionName, $this, $bestTransitionBlockerList, $context);
+        }
+
+        foreach ($approvedTransitions as $transition) {
             $this->leave($subject, $transition, $marking);
 
             $context = $this->transition($subject, $transition, $marking, $context);
@@ -188,21 +210,13 @@ class Workflow implements WorkflowInterface
             $this->announce($subject, $transition, $marking);
         }
 
-        if (!$transitionBlockerList) {
-            throw new UndefinedTransitionException($subject, $transitionName, $this);
-        }
-
-        if (!$applied) {
-            throw new NotEnabledTransitionException($subject, $transitionName, $this, $transitionBlockerList);
-        }
-
         return $marking;
     }
 
     /**
      * {@inheritdoc}
      */
-    public function getEnabledTransitions($subject)
+    public function getEnabledTransitions(object $subject)
     {
         $enabledTransitions = [];
         $marking = $this->getMarking($subject);
@@ -249,7 +263,7 @@ class Workflow implements WorkflowInterface
         return $this->definition->getMetadataStore();
     }
 
-    private function buildTransitionBlockerListForTransition($subject, Marking $marking, Transition $transition)
+    private function buildTransitionBlockerListForTransition(object $subject, Marking $marking, Transition $transition): TransitionBlockerList
     {
         foreach ($transition->getFroms() as $place) {
             if (!$marking->has($place)) {
@@ -272,7 +286,7 @@ class Workflow implements WorkflowInterface
         return new TransitionBlockerList();
     }
 
-    private function guardTransition($subject, Marking $marking, Transition $transition): ?GuardEvent
+    private function guardTransition(object $subject, Marking $marking, Transition $transition): ?GuardEvent
     {
         if (null === $this->dispatcher) {
             return null;
@@ -287,7 +301,7 @@ class Workflow implements WorkflowInterface
         return $event;
     }
 
-    private function leave($subject, Transition $transition, Marking $marking): void
+    private function leave(object $subject, Transition $transition, Marking $marking): void
     {
         $places = $transition->getFroms();
 
@@ -307,7 +321,7 @@ class Workflow implements WorkflowInterface
         }
     }
 
-    private function transition($subject, Transition $transition, Marking $marking, array $context): array
+    private function transition(object $subject, Transition $transition, Marking $marking, array $context): array
     {
         if (null === $this->dispatcher) {
             return $context;
@@ -323,7 +337,7 @@ class Workflow implements WorkflowInterface
         return $event->getContext();
     }
 
-    private function enter($subject, Transition $transition, Marking $marking): void
+    private function enter(object $subject, Transition $transition, Marking $marking): void
     {
         $places = $transition->getTos();
 
@@ -343,7 +357,7 @@ class Workflow implements WorkflowInterface
         }
     }
 
-    private function entered($subject, Transition $transition = null, Marking $marking): void
+    private function entered(object $subject, ?Transition $transition, Marking $marking): void
     {
         if (null === $this->dispatcher) {
             return;
@@ -361,7 +375,7 @@ class Workflow implements WorkflowInterface
         }
     }
 
-    private function completed($subject, Transition $transition, Marking $marking): void
+    private function completed(object $subject, Transition $transition, Marking $marking): void
     {
         if (null === $this->dispatcher) {
             return;
@@ -374,7 +388,7 @@ class Workflow implements WorkflowInterface
         $this->dispatcher->dispatch($event, sprintf('workflow.%s.completed.%s', $this->name, $transition->getName()));
     }
 
-    private function announce($subject, Transition $initialTransition, Marking $marking): void
+    private function announce(object $subject, Transition $initialTransition, Marking $marking): void
     {
         if (null === $this->dispatcher) {
             return;

@@ -30,7 +30,7 @@ class ArgumentResolverTest extends TestCase
     /** @var ArgumentResolver */
     private static $resolver;
 
-    public static function setUpBeforeClass()
+    public static function setUpBeforeClass(): void
     {
         $factory = new ArgumentMetadataFactory();
 
@@ -162,11 +162,9 @@ class ArgumentResolverTest extends TestCase
         $this->assertEquals(['foo', 'foo', 'bar'], self::$resolver->getArguments($request, $controller));
     }
 
-    /**
-     * @expectedException \InvalidArgumentException
-     */
     public function testGetVariadicArgumentsWithoutArrayInRequest()
     {
+        $this->expectException('InvalidArgumentException');
         $request = Request::create('/');
         $request->attributes->set('foo', 'foo');
         $request->attributes->set('bar', 'foo');
@@ -175,17 +173,15 @@ class ArgumentResolverTest extends TestCase
         self::$resolver->getArguments($request, $controller);
     }
 
-    /**
-     * @expectedException \InvalidArgumentException
-     */
     public function testGetArgumentWithoutArray()
     {
+        $this->expectException('InvalidArgumentException');
         $factory = new ArgumentMetadataFactory();
         $valueResolver = $this->getMockBuilder(ArgumentValueResolverInterface::class)->getMock();
         $resolver = new ArgumentResolver($factory, [$valueResolver]);
 
         $valueResolver->expects($this->any())->method('supports')->willReturn(true);
-        $valueResolver->expects($this->any())->method('resolve')->willReturn('foo');
+        $valueResolver->expects($this->any())->method('resolve')->willReturn([]);
 
         $request = Request::create('/');
         $request->attributes->set('foo', 'foo');
@@ -194,11 +190,9 @@ class ArgumentResolverTest extends TestCase
         $resolver->getArguments($request, $controller);
     }
 
-    /**
-     * @expectedException \RuntimeException
-     */
     public function testIfExceptionIsThrownWhenMissingAnArgument()
     {
+        $this->expectException('RuntimeException');
         $request = Request::create('/');
         $controller = [$this, 'controllerWithFoo'];
 
@@ -255,11 +249,9 @@ class ArgumentResolverTest extends TestCase
         $this->assertEquals([$session], self::$resolver->getArguments($request, $controller));
     }
 
-    /**
-     * @expectedException \RuntimeException
-     */
     public function testGetSessionMissMatchWithInterface()
     {
+        $this->expectException('RuntimeException');
         $session = $this->getMockBuilder(SessionInterface::class)->getMock();
         $request = Request::create('/');
         $request->setSession($session);
@@ -268,11 +260,9 @@ class ArgumentResolverTest extends TestCase
         self::$resolver->getArguments($request, $controller);
     }
 
-    /**
-     * @expectedException \RuntimeException
-     */
     public function testGetSessionMissMatchWithImplementation()
     {
+        $this->expectException('RuntimeException');
         $session = new Session(new MockArraySessionStorage());
         $request = Request::create('/');
         $request->setSession($session);
@@ -281,11 +271,9 @@ class ArgumentResolverTest extends TestCase
         self::$resolver->getArguments($request, $controller);
     }
 
-    /**
-     * @expectedException \RuntimeException
-     */
     public function testGetSessionMissMatchOnNull()
     {
+        $this->expectException('RuntimeException');
         $request = Request::create('/');
         $controller = [$this, 'controllerWithExtendingSession'];
 
@@ -304,31 +292,31 @@ class ArgumentResolverTest extends TestCase
     {
     }
 
-    protected function controllerWithFooAndDefaultBar($foo, $bar = null)
+    public function controllerWithFooAndDefaultBar($foo, $bar = null)
     {
     }
 
-    protected function controllerWithFooBarFoobar($foo, $bar, $foobar)
+    public function controllerWithFooBarFoobar($foo, $bar, $foobar)
     {
     }
 
-    protected function controllerWithRequest(Request $request)
+    public function controllerWithRequest(Request $request)
     {
     }
 
-    protected function controllerWithExtendingRequest(ExtendingRequest $request)
+    public function controllerWithExtendingRequest(ExtendingRequest $request)
     {
     }
 
-    protected function controllerWithSession(Session $session)
+    public function controllerWithSession(Session $session)
     {
     }
 
-    protected function controllerWithSessionInterface(SessionInterface $session)
+    public function controllerWithSessionInterface(SessionInterface $session)
     {
     }
 
-    protected function controllerWithExtendingSession(ExtendingSession $session)
+    public function controllerWithExtendingSession(ExtendingSession $session)
     {
     }
 }

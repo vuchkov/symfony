@@ -60,7 +60,7 @@ class ChoiceTypeTest extends BaseTypeTest
         ],
     ];
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
 
@@ -73,28 +73,24 @@ class ChoiceTypeTest extends BaseTypeTest
         ];
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         parent::tearDown();
 
         $this->objectChoices = null;
     }
 
-    /**
-     * @expectedException \Symfony\Component\OptionsResolver\Exception\InvalidOptionsException
-     */
     public function testChoicesOptionExpectsArrayOrTraversable()
     {
+        $this->expectException('Symfony\Component\OptionsResolver\Exception\InvalidOptionsException');
         $this->factory->create(static::TESTED_TYPE, null, [
             'choices' => new \stdClass(),
         ]);
     }
 
-    /**
-     * @expectedException \Symfony\Component\OptionsResolver\Exception\InvalidOptionsException
-     */
     public function testChoiceLoaderOptionExpectsChoiceLoaderInterface()
     {
+        $this->expectException('Symfony\Component\OptionsResolver\Exception\InvalidOptionsException');
         $this->factory->create(static::TESTED_TYPE, null, [
             'choice_loader' => new \stdClass(),
         ]);
@@ -1731,7 +1727,9 @@ class ChoiceTypeTest extends BaseTypeTest
 
         $this->assertEquals([
             0 => new ChoiceView('a', 'a', 'A'),
+            1 => new ChoiceView('b', 'b', 'B'),
             2 => new ChoiceView('c', 'c', 'C'),
+            3 => new ChoiceView('d', 'd', 'D'),
         ], $view->vars['choices']);
         $this->assertEquals([
             1 => new ChoiceView('b', 'b', 'B'),
@@ -1750,9 +1748,11 @@ class ChoiceTypeTest extends BaseTypeTest
         $this->assertEquals([
             'Symfony' => new ChoiceGroupView('Symfony', [
                 0 => new ChoiceView('a', 'a', 'Bernhard'),
+                1 => new ChoiceView('b', 'b', 'Fabien'),
                 2 => new ChoiceView('c', 'c', 'Kris'),
             ]),
             'Doctrine' => new ChoiceGroupView('Doctrine', [
+                3 => new ChoiceView('d', 'd', 'Jon'),
                 4 => new ChoiceView('e', 'e', 'Roman'),
             ]),
         ], $view->vars['choices']);

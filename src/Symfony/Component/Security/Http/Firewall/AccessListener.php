@@ -11,13 +11,16 @@
 
 namespace Symfony\Component\Security\Http\Firewall;
 
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\Security\Core\Authentication\AuthenticationManagerInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authorization\AccessDecisionManagerInterface;
+use Symfony\Component\Security\Core\Authorization\Voter\AuthenticatedVoter;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Core\Exception\AuthenticationCredentialsNotFoundException;
 use Symfony\Component\Security\Http\AccessMapInterface;
+use Symfony\Component\Security\Http\Event\LazyResponseEvent;
 
 /**
  * AccessListener enforces access control rules.
@@ -26,7 +29,7 @@ use Symfony\Component\Security\Http\AccessMapInterface;
  *
  * @final
  */
-class AccessListener
+class AccessListener extends AbstractListener
 {
     private $tokenStorage;
     private $accessDecisionManager;
@@ -42,23 +45,39 @@ class AccessListener
     }
 
     /**
+     * {@inheritdoc}
+     */
+    public function supports(Request $request): ?bool
+    {
+        [$attributes] = $this->map->getPatterns($request);
+        $request->attributes->set('_access_control_attributes', $attributes);
+
+        return $attributes && [AuthenticatedVoter::IS_AUTHENTICATED_ANONYMOUSLY] !== $attributes ? true : null;
+    }
+
+    /**
      * Handles access authorization.
      *
      * @throws AccessDeniedException
      * @throws AuthenticationCredentialsNotFoundException
      */
-    public function __invoke(RequestEvent $event)
+    public function authenticate(RequestEvent $event)
     {
-        if (null === $token = $this->tokenStorage->getToken()) {
+        if (!$event instanceof LazyResponseEvent && null === $token = $this->tokenStorage->getToken()) {
             throw new AuthenticationCredentialsNotFoundException('A Token was not found in the TokenStorage.');
         }
 
         $request = $event->getRequest();
 
-        list($attributes) = $this->map->getPatterns($request);
+        $attributes = $request->attributes->get('_access_control_attributes');
+        $request->attributes->remove('_access_control_attributes');
 
-        if (null === $attributes) {
+        if (!$attributes || ([AuthenticatedVoter::IS_AUTHENTICATED_ANONYMOUSLY] === $attributes && $event instanceof LazyResponseEvent)) {
             return;
+        }
+
+        if ($event instanceof LazyResponseEvent && null === $token = $this->tokenStorage->getToken()) {
+            throw new AuthenticationCredentialsNotFoundException('A Token was not found in the TokenStorage.');
         }
 
         if (!$token->isAuthenticated()) {
@@ -66,7 +85,15 @@ class AccessListener
             $this->tokenStorage->setToken($token);
         }
 
-        if (!$this->accessDecisionManager->decide($token, $attributes, $request)) {
+        $granted = false;
+        foreach ($attributes as $key => $value) {
+            if ($this->accessDecisionManager->decide($token, [$key => $value], $request)) {
+                $granted = true;
+                break;
+            }
+        }
+
+        if (!$granted) {
             $exception = new AccessDeniedException();
             $exception->setAttributes($attributes);
             $exception->setSubject($request);

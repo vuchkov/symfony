@@ -39,6 +39,8 @@ class PhpArrayAdapter implements AdapterInterface, CacheInterface, PruneableInte
     private $values;
     private $createCacheItem;
 
+    private static $valuesCache = [];
+
     /**
      * @param string           $file         The PHP file were values are cached
      * @param AdapterInterface $fallbackPool A pool to fallback on when an item is not hit
@@ -48,7 +50,7 @@ class PhpArrayAdapter implements AdapterInterface, CacheInterface, PruneableInte
         $this->file = $file;
         $this->pool = $fallbackPool;
         $this->createCacheItem = \Closure::bind(
-            function ($key, $value, $isHit) {
+            static function ($key, $value, $isHit) {
                 $item = new CacheItem();
                 $item->key = $key;
                 $item->value = $value;
@@ -65,22 +67,17 @@ class PhpArrayAdapter implements AdapterInterface, CacheInterface, PruneableInte
      * This adapter takes advantage of how PHP stores arrays in its latest versions.
      *
      * @param string                 $file         The PHP file were values are cached
-     * @param CacheItemPoolInterface $fallbackPool Fallback when opcache is disabled
+     * @param CacheItemPoolInterface $fallbackPool A pool to fallback on when an item is not hit
      *
      * @return CacheItemPoolInterface
      */
-    public static function create($file, CacheItemPoolInterface $fallbackPool)
+    public static function create(string $file, CacheItemPoolInterface $fallbackPool)
     {
-        // Shared memory is available in PHP 7.0+ with OPCache enabled
-        if (filter_var(ini_get('opcache.enable'), FILTER_VALIDATE_BOOLEAN)) {
-            if (!$fallbackPool instanceof AdapterInterface) {
-                $fallbackPool = new ProxyAdapter($fallbackPool);
-            }
-
-            return new static($file, $fallbackPool);
+        if (!$fallbackPool instanceof AdapterInterface) {
+            $fallbackPool = new ProxyAdapter($fallbackPool);
         }
 
-        return $fallbackPool;
+        return new static($file, $fallbackPool);
     }
 
     /**
@@ -169,6 +166,8 @@ class PhpArrayAdapter implements AdapterInterface, CacheInterface, PruneableInte
 
     /**
      * {@inheritdoc}
+     *
+     * @return bool
      */
     public function hasItem($key)
     {
@@ -184,6 +183,8 @@ class PhpArrayAdapter implements AdapterInterface, CacheInterface, PruneableInte
 
     /**
      * {@inheritdoc}
+     *
+     * @return bool
      */
     public function deleteItem($key)
     {
@@ -199,6 +200,8 @@ class PhpArrayAdapter implements AdapterInterface, CacheInterface, PruneableInte
 
     /**
      * {@inheritdoc}
+     *
+     * @return bool
      */
     public function deleteItems(array $keys)
     {
@@ -229,6 +232,8 @@ class PhpArrayAdapter implements AdapterInterface, CacheInterface, PruneableInte
 
     /**
      * {@inheritdoc}
+     *
+     * @return bool
      */
     public function save(CacheItemInterface $item)
     {
@@ -241,6 +246,8 @@ class PhpArrayAdapter implements AdapterInterface, CacheInterface, PruneableInte
 
     /**
      * {@inheritdoc}
+     *
+     * @return bool
      */
     public function saveDeferred(CacheItemInterface $item)
     {
@@ -253,6 +260,8 @@ class PhpArrayAdapter implements AdapterInterface, CacheInterface, PruneableInte
 
     /**
      * {@inheritdoc}
+     *
+     * @return bool
      */
     public function commit()
     {
@@ -261,12 +270,19 @@ class PhpArrayAdapter implements AdapterInterface, CacheInterface, PruneableInte
 
     /**
      * {@inheritdoc}
+     *
+     * @return bool
      */
-    public function clear()
+    public function clear(string $prefix = '')
     {
         $this->keys = $this->values = [];
 
         $cleared = @unlink($this->file) || !file_exists($this->file);
+        unset(self::$valuesCache[$this->file]);
+
+        if ($this->pool instanceof AdapterInterface) {
+            return $this->pool->clear($prefix) && $cleared;
+        }
 
         return $this->pool->clear() && $cleared;
     }
@@ -357,6 +373,7 @@ EOF;
         unset($serialized, $value, $dump);
 
         @rename($tmpFile, $this->file);
+        unset(self::$valuesCache[$this->file]);
 
         $this->initialize();
     }
@@ -366,12 +383,15 @@ EOF;
      */
     private function initialize()
     {
-        if (!file_exists($this->file)) {
+        if (isset(self::$valuesCache[$this->file])) {
+            $values = self::$valuesCache[$this->file];
+        } elseif (!file_exists($this->file)) {
             $this->keys = $this->values = [];
 
             return;
+        } else {
+            $values = self::$valuesCache[$this->file] = (include $this->file) ?: [[], []];
         }
-        $values = (include $this->file) ?: [[], []];
 
         if (2 !== \count($values) || !isset($values[0], $values[1])) {
             $this->keys = $this->values = [];
@@ -408,43 +428,5 @@ EOF;
         if ($fallbackKeys) {
             yield from $this->pool->getItems($fallbackKeys);
         }
-    }
-
-    /**
-     * @throws \ReflectionException When $class is not found and is required
-     *
-     * @internal
-     */
-    public static function throwOnRequiredClass($class)
-    {
-        $e = new \ReflectionException("Class $class does not exist");
-        $trace = $e->getTrace();
-        $autoloadFrame = [
-            'function' => 'spl_autoload_call',
-            'args' => [$class],
-        ];
-        $i = 1 + array_search($autoloadFrame, $trace, true);
-
-        if (isset($trace[$i]['function']) && !isset($trace[$i]['class'])) {
-            switch ($trace[$i]['function']) {
-                case 'get_class_methods':
-                case 'get_class_vars':
-                case 'get_parent_class':
-                case 'is_a':
-                case 'is_subclass_of':
-                case 'class_exists':
-                case 'class_implements':
-                case 'class_parents':
-                case 'trait_exists':
-                case 'defined':
-                case 'interface_exists':
-                case 'method_exists':
-                case 'property_exists':
-                case 'is_callable':
-                    return;
-            }
-        }
-
-        throw $e;
     }
 }

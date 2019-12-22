@@ -1,8 +1,9 @@
 {
-    "Version": "2.1.48.88",
+    "Version": "36",
     "Names": {
         "gu": "goudjrati",
         "pdc": "allemand de Pennsylvanie",
         "sdh": "kurde méridional"
-    }
+    },
+    "LocalizedNames": []
 }

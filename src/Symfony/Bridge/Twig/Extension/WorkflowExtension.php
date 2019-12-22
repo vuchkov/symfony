@@ -22,7 +22,7 @@ use Twig\TwigFunction;
  *
  * @author Grégoire Pineau <lyrixx@lyrixx.info>
  */
-class WorkflowExtension extends AbstractExtension
+final class WorkflowExtension extends AbstractExtension
 {
     private $workflowRegistry;
 
@@ -31,7 +31,10 @@ class WorkflowExtension extends AbstractExtension
         $this->workflowRegistry = $workflowRegistry;
     }
 
-    public function getFunctions()
+    /**
+     * {@inheritdoc}
+     */
+    public function getFunctions(): array
     {
         return [
             new TwigFunction('workflow_can', [$this, 'canTransition']),
@@ -45,14 +48,8 @@ class WorkflowExtension extends AbstractExtension
 
     /**
      * Returns true if the transition is enabled.
-     *
-     * @param object $subject        A subject
-     * @param string $transitionName A transition
-     * @param string $name           A workflow name
-     *
-     * @return bool true if the transition is enabled
      */
-    public function canTransition($subject, $transitionName, $name = null)
+    public function canTransition(object $subject, string $transitionName, string $name = null): bool
     {
         return $this->workflowRegistry->get($subject, $name)->can($subject, $transitionName);
     }
@@ -60,26 +57,17 @@ class WorkflowExtension extends AbstractExtension
     /**
      * Returns all enabled transitions.
      *
-     * @param object $subject A subject
-     * @param string $name    A workflow name
-     *
      * @return Transition[] All enabled transitions
      */
-    public function getEnabledTransitions($subject, $name = null)
+    public function getEnabledTransitions(object $subject, string $name = null): array
     {
         return $this->workflowRegistry->get($subject, $name)->getEnabledTransitions($subject);
     }
 
     /**
      * Returns true if the place is marked.
-     *
-     * @param object $subject   A subject
-     * @param string $placeName A place name
-     * @param string $name      A workflow name
-     *
-     * @return bool true if the transition is enabled
      */
-    public function hasMarkedPlace($subject, $placeName, $name = null)
+    public function hasMarkedPlace(object $subject, string $placeName, string $name = null): bool
     {
         return $this->workflowRegistry->get($subject, $name)->getMarking($subject)->has($placeName);
     }
@@ -87,13 +75,9 @@ class WorkflowExtension extends AbstractExtension
     /**
      * Returns marked places.
      *
-     * @param object $subject        A subject
-     * @param bool   $placesNameOnly If true, returns only places name. If false returns the raw representation
-     * @param string $name           A workflow name
-     *
      * @return string[]|int[]
      */
-    public function getMarkedPlaces($subject, $placesNameOnly = true, $name = null)
+    public function getMarkedPlaces(object $subject, bool $placesNameOnly = true, string $name = null): array
     {
         $places = $this->workflowRegistry->get($subject, $name)->getMarking($subject)->getPlaces();
 
@@ -107,12 +91,11 @@ class WorkflowExtension extends AbstractExtension
     /**
      * Returns the metadata for a specific subject.
      *
-     * @param object                 $subject         A subject
      * @param string|Transition|null $metadataSubject Use null to get workflow metadata
      *                                                Use a string (the place name) to get place metadata
      *                                                Use a Transition instance to get transition metadata
      */
-    public function getMetadata($subject, string $key, $metadataSubject = null, string $name = null): ?string
+    public function getMetadata(object $subject, string $key, $metadataSubject = null, string $name = null): ?string
     {
         return $this
             ->workflowRegistry
@@ -122,15 +105,10 @@ class WorkflowExtension extends AbstractExtension
         ;
     }
 
-    public function buildTransitionBlockerList($subject, string $transitionName, string $name = null): TransitionBlockerList
+    public function buildTransitionBlockerList(object $subject, string $transitionName, string $name = null): TransitionBlockerList
     {
         $workflow = $this->workflowRegistry->get($subject, $name);
 
         return $workflow->buildTransitionBlockerList($subject, $transitionName);
-    }
-
-    public function getName()
-    {
-        return 'workflow';
     }
 }

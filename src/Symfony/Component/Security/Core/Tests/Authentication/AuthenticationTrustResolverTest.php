@@ -55,39 +55,6 @@ class AuthenticationTrustResolverTest extends TestCase
         $this->assertTrue($resolver->isFullFledged(new FakeCustomToken()));
     }
 
-    /**
-     * @group legacy
-     * @expectedDeprecation Configuring a custom anonymous token class is deprecated since Symfony 4.2; have the "Symfony\Component\Security\Core\Tests\Authentication\FakeCustomToken" class extend the "Symfony\Component\Security\Core\Authentication\Token\AnonymousToken" class instead, and remove the "Symfony\Component\Security\Core\Authentication\AuthenticationTrustResolver" constructor argument.
-     */
-    public function testsAnonymousDeprecationWithCustomClasses()
-    {
-        $resolver = new AuthenticationTrustResolver(FakeCustomToken::class);
-
-        $this->assertTrue($resolver->isAnonymous(new FakeCustomToken()));
-    }
-
-    /**
-     * @group legacy
-     * @expectedDeprecation Configuring a custom remember me token class is deprecated since Symfony 4.2; have the "Symfony\Component\Security\Core\Tests\Authentication\FakeCustomToken" class extend the "Symfony\Component\Security\Core\Authentication\Token\RememberMeToken" class instead, and remove the "Symfony\Component\Security\Core\Authentication\AuthenticationTrustResolver" constructor argument.
-     */
-    public function testIsRememberMeDeprecationWithCustomClasses()
-    {
-        $resolver = new AuthenticationTrustResolver(null, FakeCustomToken::class);
-
-        $this->assertTrue($resolver->isRememberMe(new FakeCustomToken()));
-    }
-
-    /**
-     * @group legacy
-     * @expectedDeprecation Configuring a custom remember me token class is deprecated since Symfony 4.2; have the "Symfony\Component\Security\Core\Tests\Authentication\FakeCustomToken" class extend the "Symfony\Component\Security\Core\Authentication\Token\RememberMeToken" class instead, and remove the "Symfony\Component\Security\Core\Authentication\AuthenticationTrustResolver" constructor argument.
-     */
-    public function testIsFullFledgedDeprecationWithCustomClasses()
-    {
-        $resolver = new AuthenticationTrustResolver(FakeCustomToken::class, FakeCustomToken::class);
-
-        $this->assertFalse($resolver->isFullFledged(new FakeCustomToken()));
-    }
-
     public function testIsAnonymousWithClassAsConstructorButStillExtending()
     {
         $resolver = $this->getResolver();
@@ -152,7 +119,7 @@ class FakeCustomToken implements TokenInterface
     {
     }
 
-    public function serialize()
+    public function serialize(): string
     {
     }
 
@@ -164,7 +131,7 @@ class FakeCustomToken implements TokenInterface
     {
     }
 
-    public function __toString()
+    public function __toString(): string
     {
     }
 
@@ -184,15 +151,15 @@ class FakeCustomToken implements TokenInterface
     {
     }
 
-    public function getUsername()
+    public function getUsername(): string
     {
     }
 
-    public function isAuthenticated()
+    public function isAuthenticated(): bool
     {
     }
 
-    public function setAuthenticated($isAuthenticated)
+    public function setAuthenticated(bool $isAuthenticated)
     {
     }
 
@@ -200,7 +167,7 @@ class FakeCustomToken implements TokenInterface
     {
     }
 
-    public function getAttributes()
+    public function getAttributes(): array
     {
     }
 
@@ -208,15 +175,15 @@ class FakeCustomToken implements TokenInterface
     {
     }
 
-    public function hasAttribute($name)
+    public function hasAttribute(string $name): bool
     {
     }
 
-    public function getAttribute($name)
+    public function getAttribute(string $name)
     {
     }
 
-    public function setAttribute($name, $value)
+    public function setAttribute(string $name, $value)
     {
     }
 }

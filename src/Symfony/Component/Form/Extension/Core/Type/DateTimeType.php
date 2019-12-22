@@ -168,8 +168,8 @@ class DateTimeType extends AbstractType
                         'time' => $timeParts,
                     ]),
                 ]))
-                ->add('date', __NAMESPACE__.'\DateType', $dateOptions)
-                ->add('time', __NAMESPACE__.'\TimeType', $timeOptions)
+                ->add('date', DateType::class, $dateOptions)
+                ->add('time', TimeType::class, $timeOptions)
             ;
         }
 
@@ -320,7 +320,7 @@ class DateTimeType extends AbstractType
         });
         $resolver->setNormalizer('html5', function (Options $options, $html5) {
             if ($html5 && self::HTML5_FORMAT !== $options['format']) {
-                throw new LogicException(sprintf('Cannot use the "format" option of %s when the "html5" option is disabled.', self::class));
+                throw new LogicException(sprintf('Cannot use the "format" option of %s when the "html5" option is enabled.', self::class));
             }
 
             return $html5;

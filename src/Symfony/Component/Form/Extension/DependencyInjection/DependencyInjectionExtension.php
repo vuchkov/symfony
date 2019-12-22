@@ -25,9 +25,7 @@ class DependencyInjectionExtension implements FormExtensionInterface
     private $guesserServices;
 
     /**
-     * @param ContainerInterface $typeContainer
-     * @param iterable[]         $typeExtensionServices
-     * @param iterable           $guesserServices
+     * @param iterable[] $typeExtensionServices
      */
     public function __construct(ContainerInterface $typeContainer, array $typeExtensionServices, iterable $guesserServices)
     {
@@ -36,7 +34,10 @@ class DependencyInjectionExtension implements FormExtensionInterface
         $this->guesserServices = $guesserServices;
     }
 
-    public function getType($name)
+    /**
+     * {@inheritdoc}
+     */
+    public function getType(string $name)
     {
         if (!$this->typeContainer->has($name)) {
             throw new InvalidArgumentException(sprintf('The field type "%s" is not registered in the service container.', $name));
@@ -45,12 +46,18 @@ class DependencyInjectionExtension implements FormExtensionInterface
         return $this->typeContainer->get($name);
     }
 
-    public function hasType($name)
+    /**
+     * {@inheritdoc}
+     */
+    public function hasType(string $name)
     {
         return $this->typeContainer->has($name);
     }
 
-    public function getTypeExtensions($name)
+    /**
+     * {@inheritdoc}
+     */
+    public function getTypeExtensions(string $name)
     {
         $extensions = [];
 
@@ -73,11 +80,17 @@ class DependencyInjectionExtension implements FormExtensionInterface
         return $extensions;
     }
 
-    public function hasTypeExtensions($name)
+    /**
+     * {@inheritdoc}
+     */
+    public function hasTypeExtensions(string $name)
     {
         return isset($this->typeExtensionServices[$name]);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getTypeGuesser()
     {
         if (!$this->guesserLoaded) {

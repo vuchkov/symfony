@@ -91,7 +91,7 @@ class ResolvedFormType implements ResolvedFormTypeInterface
     /**
      * {@inheritdoc}
      */
-    public function createBuilder(FormFactoryInterface $factory, $name, array $options = [])
+    public function createBuilder(FormFactoryInterface $factory, string $name, array $options = [])
     {
         try {
             $options = $this->getOptionsResolver()->resolve($options);
@@ -118,9 +118,6 @@ class ResolvedFormType implements ResolvedFormTypeInterface
 
     /**
      * Configures a form builder for the type hierarchy.
-     *
-     * @param FormBuilderInterface $builder The builder to configure
-     * @param array                $options The options used for the configuration
      */
     public function buildForm(FormBuilderInterface $builder, array $options)
     {
@@ -139,10 +136,6 @@ class ResolvedFormType implements ResolvedFormTypeInterface
      * Configures a form view for the type hierarchy.
      *
      * This method is called before the children of the view are built.
-     *
-     * @param FormView      $view    The form view to configure
-     * @param FormInterface $form    The form corresponding to the view
-     * @param array         $options The options used for the configuration
      */
     public function buildView(FormView $view, FormInterface $form, array $options)
     {
@@ -161,10 +154,6 @@ class ResolvedFormType implements ResolvedFormTypeInterface
      * Finishes a form view for the type hierarchy.
      *
      * This method is called after the children of the view have been built.
-     *
-     * @param FormView      $view    The form view to configure
-     * @param FormInterface $form    The form corresponding to the view
-     * @param array         $options The options used for the configuration
      */
     public function finishView(FormView $view, FormInterface $form, array $options)
     {
@@ -209,14 +198,9 @@ class ResolvedFormType implements ResolvedFormTypeInterface
      *
      * Override this method if you want to customize the builder class.
      *
-     * @param string               $name      The name of the builder
-     * @param string|null          $dataClass The data class
-     * @param FormFactoryInterface $factory   The current form factory
-     * @param array                $options   The builder options
-     *
      * @return FormBuilderInterface The new builder instance
      */
-    protected function newBuilder($name, $dataClass, FormFactoryInterface $factory, array $options)
+    protected function newBuilder(string $name, ?string $dataClass, FormFactoryInterface $factory, array $options)
     {
         if ($this->innerType instanceof ButtonTypeInterface) {
             return new ButtonBuilder($name, $options);
@@ -233,8 +217,6 @@ class ResolvedFormType implements ResolvedFormTypeInterface
      * Creates a new view instance.
      *
      * Override this method if you want to customize the view class.
-     *
-     * @param FormView|null $parent The parent view, if available
      *
      * @return FormView A new view instance
      */

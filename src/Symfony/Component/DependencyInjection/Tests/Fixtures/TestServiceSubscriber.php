@@ -2,6 +2,7 @@
 
 namespace Symfony\Component\DependencyInjection\Tests\Fixtures;
 
+use Symfony\Contracts\Service\ServiceProviderInterface;
 use Symfony\Contracts\Service\ServiceSubscriberInterface;
 
 class TestServiceSubscriber implements ServiceSubscriberInterface
@@ -10,7 +11,11 @@ class TestServiceSubscriber implements ServiceSubscriberInterface
     {
     }
 
-    public static function getSubscribedServices()
+    public function setServiceProvider(ServiceProviderInterface $container)
+    {
+    }
+
+    public static function getSubscribedServices(): array
     {
         return [
             __CLASS__,

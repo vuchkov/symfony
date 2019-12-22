@@ -9,8 +9,6 @@
  * file that was distributed with this source code.
  */
 
-declare(strict_types=1);
-
 namespace Symfony\Component\Messenger\Stamp;
 
 /**
@@ -20,6 +18,6 @@ namespace Symfony\Component\Messenger\Stamp;
  *
  * @author Tobias Nyholm <tobias.nyholm@gmail.com>
  */
-class DispatchAfterCurrentBusStamp implements StampInterface
+final class DispatchAfterCurrentBusStamp implements NonSendableStampInterface
 {
 }

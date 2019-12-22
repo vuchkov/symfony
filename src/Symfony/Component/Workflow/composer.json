@@ -20,7 +20,7 @@
         }
     ],
     "require": {
-        "php": "^7.2.9"
+        "php": "^7.2.5"
     },
     "require-dev": {
         "psr/log": "~1.0",
@@ -39,7 +39,7 @@
     "minimum-stability": "dev",
     "extra": {
         "branch-alias": {
-            "dev-master": "5.0-dev"
+            "dev-master": "5.1-dev"
         }
     }
 }

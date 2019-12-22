@@ -11,6 +11,7 @@
 
 namespace Symfony\Bridge\PhpUnit\DeprecationErrorHandler;
 
+use PHPUnit\Util\Test;
 use Symfony\Bridge\PhpUnit\Legacy\SymfonyTestsListenerFor;
 
 /**
@@ -18,33 +19,30 @@ use Symfony\Bridge\PhpUnit\Legacy\SymfonyTestsListenerFor;
  */
 class Deprecation
 {
-    /**
-     * @var array
-     */
-    private $trace;
+    const PATH_TYPE_VENDOR = 'path_type_vendor';
+    const PATH_TYPE_SELF = 'path_type_internal';
+    const PATH_TYPE_UNDETERMINED = 'path_type_undetermined';
 
-    /**
-     * @var string
-     */
+    const TYPE_SELF = 'type_self';
+    const TYPE_DIRECT = 'type_direct';
+    const TYPE_INDIRECT = 'type_indirect';
+    const TYPE_UNDETERMINED = 'type_undetermined';
+
+    private $trace = [];
     private $message;
-
-    /**
-     * @var ?string
-     */
     private $originClass;
-
-    /**
-     * @var ?string
-     */
     private $originMethod;
+    private $triggeringFile;
+
+    /** @var string[] Absolute paths to vendor directories */
+    private static $vendors;
 
     /**
-     * @var bool
+     * @var string[] Absolute paths to source or tests of the project, cache
+     *               directories exlcuded because it is based on autoloading
+     *               rules and cache systems typically do not use those
      */
-    private $self;
-
-    /** @var string[] absolute paths to vendor directories */
-    private static $vendors;
+    private static $internalPaths = [];
 
     /**
      * @param string $message
@@ -59,7 +57,7 @@ class Deprecation
             // No-op
         }
         $line = $trace[$i];
-        $this->self = !$this->pathOriginatesFromVendor($file);
+        $this->triggeringFile = $file;
         if (isset($line['object']) || isset($line['class'])) {
             if (isset($line['class']) && 0 === strpos($line['class'], SymfonyTestsListenerFor::class)) {
                 $parsedMsg = unserialize($this->message);
@@ -70,8 +68,9 @@ class Deprecation
                 // \Symfony\Bridge\PhpUnit\Legacy\SymfonyTestsListenerTrait::endTest()
                 // then we need to use the serialized information to determine
                 // if the error has been triggered from vendor code.
-                $this->self = isset($parsedMsg['triggering_file'])
-                    && $this->pathOriginatesFromVendor($parsedMsg['triggering_file']);
+                if (isset($parsedMsg['triggering_file'])) {
+                    $this->triggeringFile = $parsedMsg['triggering_file'];
+                }
 
                 return;
             }
@@ -99,14 +98,6 @@ class Deprecation
     public function originatesFromAnObject()
     {
         return isset($this->originClass);
-    }
-
-    /**
-     * @return bool
-     */
-    public function isSelf()
-    {
-        return $this->self;
     }
 
     /**
@@ -142,13 +133,10 @@ class Deprecation
     }
 
     /**
-     * @param string $utilPrefix
-     *
      * @return bool
      */
-    public function isLegacy($utilPrefix)
+    public function isLegacy()
     {
-        $test = $utilPrefix.'Test';
         $class = $this->originatingClass();
         $method = $this->originatingMethod();
 
@@ -156,17 +144,39 @@ class Deprecation
             || 0 === strpos($method, 'provideLegacy')
             || 0 === strpos($method, 'getLegacy')
             || strpos($class, '\Legacy')
-            || \in_array('legacy', $test::getGroups($class, $method), true);
+            || \in_array('legacy', Test::getGroups($class, $method), true);
+    }
+
+    /**
+     * @return bool
+     */
+    public function isMuted()
+    {
+        if ('Function ReflectionType::__toString() is deprecated' !== $this->message) {
+            return false;
+        }
+        if (isset($this->trace[1]['class'])) {
+            return 0 === strpos($this->trace[1]['class'], 'PHPUnit\\');
+        }
+
+        return false !== strpos($this->triggeringFile, \DIRECTORY_SEPARATOR.'vendor'.\DIRECTORY_SEPARATOR.'phpunit'.\DIRECTORY_SEPARATOR);
     }
 
     /**
      * Tells whether both the calling package and the called package are vendor
      * packages.
      *
-     * @return bool
+     * @return string
      */
-    public function isIndirect()
+    public function getType()
     {
+        $triggeringFilePathType = $this->getPathType($this->triggeringFile);
+        if (self::PATH_TYPE_SELF === $triggeringFilePathType) {
+            return self::TYPE_SELF;
+        }
+        if (self::PATH_TYPE_UNDETERMINED === $triggeringFilePathType) {
+            return self::TYPE_UNDETERMINED;
+        }
         $erroringFile = $erroringPackage = null;
         foreach ($this->trace as $line) {
             if (\in_array($line['function'], ['require', 'require_once', 'include', 'include_once'], true)) {
@@ -179,13 +189,16 @@ class Deprecation
             if ('-' === $file || 'Standard input code' === $file || !realpath($file)) {
                 continue;
             }
-            if (!$this->pathOriginatesFromVendor($file)) {
-                return false;
+            if (self::PATH_TYPE_SELF === $this->getPathType($file)) {
+                return self::TYPE_DIRECT;
+            }
+            if (self::PATH_TYPE_UNDETERMINED === $this->getPathType($file)) {
+                return self::TYPE_UNDETERMINED;
             }
             if (null !== $erroringFile && null !== $erroringPackage) {
                 $package = $this->getPackage($file);
                 if ('composer' !== $package && $package !== $erroringPackage) {
-                    return true;
+                    return self::TYPE_INDIRECT;
                 }
                 continue;
             }
@@ -193,11 +206,11 @@ class Deprecation
             $erroringPackage = $this->getPackage($file);
         }
 
-        return false;
+        return self::TYPE_DIRECT;
     }
 
     /**
-     * pathOriginatesFromVendor() should always be called prior to calling this method.
+     * getPathType() should always be called prior to calling this method.
      *
      * @param string $path
      *
@@ -230,13 +243,22 @@ class Deprecation
     private static function getVendors()
     {
         if (null === self::$vendors) {
-            self::$vendors = [];
+            self::$vendors = $paths = [];
             foreach (get_declared_classes() as $class) {
                 if ('C' === $class[0] && 0 === strpos($class, 'ComposerAutoloaderInit')) {
                     $r = new \ReflectionClass($class);
                     $v = \dirname(\dirname($r->getFileName()));
                     if (file_exists($v.'/composer/installed.json')) {
                         self::$vendors[] = $v;
+                        $loader = require $v.'/autoload.php';
+                        $paths = self::getSourcePathsFromPrefixes(array_merge($loader->getPrefixes(), $loader->getPrefixesPsr4()));
+                    }
+                }
+            }
+            foreach ($paths as $path) {
+                foreach (self::$vendors as $vendor) {
+                    if (0 !== strpos($path, $vendor)) {
+                        self::$internalPaths[] = $path;
                     }
                 }
             }
@@ -245,24 +267,41 @@ class Deprecation
         return self::$vendors;
     }
 
+    private static function getSourcePathsFromPrefixes(array $prefixesByNamespace)
+    {
+        foreach ($prefixesByNamespace as $prefixes) {
+            foreach ($prefixes as $prefix) {
+                if (false !== realpath($prefix)) {
+                    yield realpath($prefix);
+                }
+            }
+        }
+    }
+
     /**
      * @param string $path
      *
-     * @return bool
+     * @return string
      */
-    private function pathOriginatesFromVendor($path)
+    private function getPathType($path)
     {
         $realPath = realpath($path);
         if (false === $realPath && '-' !== $path && 'Standard input code' !== $path) {
-            return true;
+            return self::PATH_TYPE_UNDETERMINED;
         }
         foreach (self::getVendors() as $vendor) {
             if (0 === strpos($realPath, $vendor) && false !== strpbrk(substr($realPath, \strlen($vendor), 1), '/'.\DIRECTORY_SEPARATOR)) {
-                return true;
+                return self::PATH_TYPE_VENDOR;
             }
         }
 
-        return false;
+        foreach (self::$internalPaths as $internalPath) {
+            if (0 === strpos($realPath, $internalPath)) {
+                return self::PATH_TYPE_SELF;
+            }
+        }
+
+        return self::PATH_TYPE_UNDETERMINED;
     }
 
     /**
@@ -280,20 +319,5 @@ class Deprecation
         "\nStack trace:".
         "\n".str_replace(' '.getcwd().\DIRECTORY_SEPARATOR, ' ', $exception->getTraceAsString()).
         "\n";
-    }
-
-    private function getPackageFromLine(array $line)
-    {
-        if (!isset($line['file'])) {
-            return 'internal function';
-        }
-        if (!$this->pathOriginatesFromVendor($line['file'])) {
-            return 'source code';
-        }
-        try {
-            return $this->getPackage($line['file']);
-        } catch (\RuntimeException $e) {
-            return 'unknown';
-        }
     }
 }

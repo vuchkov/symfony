@@ -16,14 +16,14 @@
         }
     ],
     "require": {
-        "php": "^7.2.9",
+        "php": "^7.2.5",
         "symfony/event-dispatcher": "^4.4|^5.0",
         "symfony/intl": "^4.4|^5.0",
-        "symfony/options-resolver": "^4.4|^5.0",
+        "symfony/options-resolver": "^5.0",
         "symfony/polyfill-ctype": "~1.8",
         "symfony/polyfill-mbstring": "~1.0",
-        "symfony/property-access": "^4.4|^5.0",
-        "symfony/service-contracts": "~1.1"
+        "symfony/property-access": "^5.0",
+        "symfony/service-contracts": "^1.1|^2"
     },
     "require-dev": {
         "doctrine/collections": "~1.0",
@@ -62,7 +62,7 @@
     "minimum-stability": "dev",
     "extra": {
         "branch-alias": {
-            "dev-master": "5.0-dev"
+            "dev-master": "5.1-dev"
         }
     }
 }

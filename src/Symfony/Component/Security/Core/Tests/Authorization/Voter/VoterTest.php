@@ -20,7 +20,7 @@ class VoterTest extends TestCase
 {
     protected $token;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         $this->token = $this->getMockBuilder('Symfony\Component\Security\Core\Authentication\Token\TokenInterface')->getMock();
     }
@@ -59,12 +59,12 @@ class VoterTest extends TestCase
 
 class VoterTest_Voter extends Voter
 {
-    protected function voteOnAttribute($attribute, $object, TokenInterface $token)
+    protected function voteOnAttribute(string $attribute, $object, TokenInterface $token): bool
     {
         return 'EDIT' === $attribute;
     }
 
-    protected function supports($attribute, $object)
+    protected function supports(string $attribute, $object): bool
     {
         return $object instanceof \stdClass && \in_array($attribute, ['EDIT', 'CREATE']);
     }

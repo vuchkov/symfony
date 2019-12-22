@@ -24,7 +24,7 @@
         }
     ],
     "require": {
-        "php": "^7.2.9",
+        "php": "^7.2.5",
         "symfony/polyfill-intl-icu": "~1.0"
     },
     "require-dev": {
@@ -43,7 +43,7 @@
     "minimum-stability": "dev",
     "extra": {
         "branch-alias": {
-            "dev-master": "5.0-dev"
+            "dev-master": "5.1-dev"
         }
     }
 }

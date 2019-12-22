@@ -59,7 +59,7 @@ class Logger extends BaseLogger implements DebugLoggerInterface, ResetInterface
     /**
      * {@inheritdoc}
      */
-    public function reset()
+    public function reset(): void
     {
         $this->clear();
 
@@ -85,10 +85,8 @@ class Logger extends BaseLogger implements DebugLoggerInterface, ResetInterface
 
     /**
      * Returns a DebugLoggerInterface instance if one is registered with this logger.
-     *
-     * @return DebugLoggerInterface|null A DebugLoggerInterface instance or null if none is registered
      */
-    private function getDebugLogger()
+    private function getDebugLogger(): ?DebugLoggerInterface
     {
         foreach ($this->processors as $processor) {
             if ($processor instanceof DebugLoggerInterface) {
@@ -101,5 +99,7 @@ class Logger extends BaseLogger implements DebugLoggerInterface, ResetInterface
                 return $handler;
             }
         }
+
+        return null;
     }
 }

@@ -27,8 +27,9 @@ final class User implements UserInterface, EquatableInterface
     private $credentialsNonExpired;
     private $accountNonLocked;
     private $roles;
+    private $extraFields;
 
-    public function __construct(?string $username, ?string $password, array $roles = [], bool $enabled = true, bool $userNonExpired = true, bool $credentialsNonExpired = true, bool $userNonLocked = true)
+    public function __construct(?string $username, ?string $password, array $roles = [], bool $enabled = true, bool $userNonExpired = true, bool $credentialsNonExpired = true, bool $userNonLocked = true, array $extraFields = [])
     {
         if ('' === $username || null === $username) {
             throw new \InvalidArgumentException('The username cannot be empty.');
@@ -41,6 +42,7 @@ final class User implements UserInterface, EquatableInterface
         $this->credentialsNonExpired = $credentialsNonExpired;
         $this->accountNonLocked = $userNonLocked;
         $this->roles = $roles;
+        $this->extraFields = $extraFields;
     }
 
     public function __toString(): string
@@ -67,8 +69,9 @@ final class User implements UserInterface, EquatableInterface
     /**
      * {@inheritdoc}
      */
-    public function getSalt()
+    public function getSalt(): ?string
     {
+        return null;
     }
 
     /**
@@ -118,6 +121,11 @@ final class User implements UserInterface, EquatableInterface
     {
     }
 
+    public function getExtraFields(): array
+    {
+        return $this->extraFields;
+    }
+
     /**
      * {@inheritdoc}
      */
@@ -132,6 +140,13 @@ final class User implements UserInterface, EquatableInterface
         }
 
         if ($this->getSalt() !== $user->getSalt()) {
+            return false;
+        }
+
+        $currentRoles = array_map('strval', (array) $this->getRoles());
+        $newRoles = array_map('strval', (array) $user->getRoles());
+        $rolesChanged = \count($currentRoles) !== \count($newRoles) || \count($currentRoles) !== \count(array_intersect($currentRoles, $newRoles));
+        if ($rolesChanged) {
             return false;
         }
 
@@ -156,5 +171,10 @@ final class User implements UserInterface, EquatableInterface
         }
 
         return true;
+    }
+
+    public function setPassword(string $password)
+    {
+        $this->password = $password;
     }
 }

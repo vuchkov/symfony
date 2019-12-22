@@ -37,6 +37,8 @@ $container->loadFromExtension('framework', [
         'gc_maxlifetime' => 90000,
         'gc_divisor' => 108,
         'gc_probability' => 1,
+        'sid_length' => 22,
+        'sid_bits_per_character' => 4,
         'save_path' => '/path/to/sessions',
     ],
     'assets' => [
@@ -46,6 +48,7 @@ $container->loadFromExtension('framework', [
         'enabled' => true,
         'fallback' => 'fr',
         'paths' => ['%kernel.project_dir%/Fixtures/translations'],
+        'cache_dir' => '%kernel.cache_dir%/translations',
     ],
     'validation' => [
         'enabled' => true,

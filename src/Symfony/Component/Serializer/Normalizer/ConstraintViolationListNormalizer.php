@@ -19,7 +19,6 @@ use Symfony\Component\Validator\ConstraintViolationListInterface;
  *
  * This Normalizer implements RFC7807 {@link https://tools.ietf.org/html/rfc7807}.
  *
- *
  * @author Grégoire Pineau <lyrixx@lyrixx.info>
  * @author Kévin Dunglas <dunglas@gmail.com>
  */
@@ -42,7 +41,7 @@ class ConstraintViolationListNormalizer implements NormalizerInterface, Cacheabl
     /**
      * {@inheritdoc}
      */
-    public function normalize($object, $format = null, array $context = [])
+    public function normalize($object, string $format = null, array $context = [])
     {
         $violations = [];
         $messages = [];
@@ -84,7 +83,7 @@ class ConstraintViolationListNormalizer implements NormalizerInterface, Cacheabl
     /**
      * {@inheritdoc}
      */
-    public function supportsNormalization($data, $format = null)
+    public function supportsNormalization($data, string $format = null)
     {
         return $data instanceof ConstraintViolationListInterface;
     }

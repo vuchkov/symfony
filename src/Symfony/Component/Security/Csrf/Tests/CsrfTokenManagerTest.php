@@ -160,15 +160,17 @@ class CsrfTokenManagerTest extends TestCase
     public function testNamespaced()
     {
         $generator = $this->getMockBuilder('Symfony\Component\Security\Csrf\TokenGenerator\TokenGeneratorInterface')->getMock();
+        $generator->expects($this->once())->method('generateToken')->willReturn('random');
         $storage = $this->getMockBuilder('Symfony\Component\Security\Csrf\TokenStorage\TokenStorageInterface')->getMock();
 
         $requestStack = new RequestStack();
         $requestStack->push(new Request([], [], [], [], [], ['HTTPS' => 'on']));
 
-        $manager = new CsrfTokenManager($generator, $storage, null, $requestStack);
+        $manager = new CsrfTokenManager($generator, $storage);
 
         $token = $manager->getToken('foo');
         $this->assertSame('foo', $token->getId());
+        $this->assertSame('random', $token->getValue());
     }
 
     public function getManagerGeneratorAndStorage()
@@ -202,7 +204,7 @@ class CsrfTokenManagerTest extends TestCase
         return $data;
     }
 
-    private function getGeneratorAndStorage()
+    private function getGeneratorAndStorage(): array
     {
         return [
             $this->getMockBuilder('Symfony\Component\Security\Csrf\TokenGenerator\TokenGeneratorInterface')->getMock(),
@@ -210,12 +212,12 @@ class CsrfTokenManagerTest extends TestCase
         ];
     }
 
-    protected function setUp()
+    protected function setUp(): void
     {
         $_SERVER['HTTPS'] = 'on';
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         parent::tearDown();
 

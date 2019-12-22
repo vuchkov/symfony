@@ -117,24 +117,6 @@
             <argument type="service" id="workflow.registry" />
         </service>
 
-        <service id="twig.exception_listener" class="Symfony\Component\HttpKernel\EventListener\ExceptionListener">
-            <tag name="kernel.event_subscriber" />
-            <tag name="monolog.logger" channel="request" />
-            <argument>%twig.exception_listener.controller%</argument>
-            <argument type="service" id="logger" on-invalid="null" />
-            <argument>%kernel.debug%</argument>
-        </service>
-
-        <service id="twig.controller.exception" class="Symfony\Bundle\TwigBundle\Controller\ExceptionController" public="true">
-            <argument type="service" id="twig" />
-            <argument>%kernel.debug%</argument>
-        </service>
-
-        <service id="twig.controller.preview_error" class="Symfony\Bundle\TwigBundle\Controller\PreviewErrorController" public="true">
-            <argument type="service" id="http_kernel" />
-            <argument>%twig.exception_listener.controller%</argument>
-        </service>
-
         <service id="twig.configurator.environment" class="Symfony\Bundle\TwigBundle\DependencyInjection\Configurator\EnvironmentConfigurator">
             <argument /> <!-- date format, set in TwigExtension -->
             <argument /> <!-- interval format, set in TwigExtension -->
@@ -146,6 +128,18 @@
 
         <service id="twig.runtime_loader" class="Twig\RuntimeLoader\ContainerRuntimeLoader">
             <argument /> <!-- runtime locator -->
+        </service>
+
+        <service id="twig.error_renderer.html" class="Symfony\Bridge\Twig\ErrorRenderer\TwigErrorRenderer" decorates="error_renderer.html">
+            <argument type="service" id="twig" />
+            <argument type="service" id="twig.error_renderer.html.inner" />
+            <argument type="service">
+                <service>
+                    <factory class="Symfony\Bridge\Twig\ErrorRenderer\TwigErrorRenderer" method="isDebug" />
+                    <argument type="service" id="request_stack" />
+                    <argument>%kernel.debug%</argument>
+                </service>
+            </argument>
         </service>
     </services>
 </container>

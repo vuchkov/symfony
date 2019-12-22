@@ -13,14 +13,14 @@ namespace Symfony\Component\HttpKernel\Tests\EventListener;
 
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LogLevel;
+use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\ConsoleEvents;
 use Symfony\Component\Console\Event\ConsoleEvent;
 use Symfony\Component\Console\Helper\HelperSet;
 use Symfony\Component\Console\Input\ArgvInput;
 use Symfony\Component\Console\Output\ConsoleOutput;
-use Symfony\Component\Debug\ErrorHandler;
-use Symfony\Component\Debug\ExceptionHandler;
+use Symfony\Component\ErrorHandler\ErrorHandler;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\KernelEvent;
@@ -38,9 +38,7 @@ class DebugHandlersListenerTest extends TestCase
         $logger = $this->getMockBuilder('Psr\Log\LoggerInterface')->getMock();
         $userHandler = function () {};
         $listener = new DebugHandlersListener($userHandler, $logger);
-        $xHandler = new ExceptionHandler();
         $eHandler = new ErrorHandler();
-        $eHandler->setExceptionHandler([$xHandler, 'handle']);
 
         $exception = null;
         set_error_handler([$eHandler, 'handleError']);
@@ -56,7 +54,7 @@ class DebugHandlersListenerTest extends TestCase
             throw $exception;
         }
 
-        $this->assertSame($userHandler, $xHandler->setHandler('var_dump'));
+        $this->assertSame($userHandler, $eHandler->setExceptionHandler('var_dump'));
 
         $loggers = $eHandler->setLoggers([]);
 
@@ -104,7 +102,6 @@ class DebugHandlersListenerTest extends TestCase
         $xListeners = [
             KernelEvents::REQUEST => [[$listener, 'configure']],
             ConsoleEvents::COMMAND => [[$listener, 'configure']],
-            KernelEvents::EXCEPTION => [[$listener, 'onKernelException']],
         ];
         $this->assertSame($xListeners, $dispatcher->getListeners());
 
@@ -127,7 +124,7 @@ class DebugHandlersListenerTest extends TestCase
         $this->assertInstanceOf('Closure', $xHandler);
 
         $app->expects($this->once())
-            ->method('renderException');
+            ->method(method_exists(Application::class, 'renderThrowable') ? 'renderThrowable' : 'renderException');
 
         $xHandler(new \Exception());
     }

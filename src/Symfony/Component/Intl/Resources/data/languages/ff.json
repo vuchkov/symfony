@@ -1,5 +1,5 @@
 {
-    "Version": "2.1.47.82",
+    "Version": "36",
     "Names": {
         "ak": "Akaan",
         "am": "Amarik",
@@ -46,5 +46,6 @@
         "yo": "Yorrubaa",
         "zh": "Sinuwaare",
         "zu": "Suluŋkoore"
-    }
+    },
+    "LocalizedNames": []
 }

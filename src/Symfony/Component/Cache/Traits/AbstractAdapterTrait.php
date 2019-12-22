@@ -61,7 +61,7 @@ trait AbstractAdapterTrait
      *
      * @return bool True if item exists in the cache, false otherwise
      */
-    abstract protected function doHave($id);
+    abstract protected function doHave(string $id);
 
     /**
      * Deletes all items in the pool.
@@ -70,7 +70,7 @@ trait AbstractAdapterTrait
      *
      * @return bool True if the pool was successfully cleared, false otherwise
      */
-    abstract protected function doClear($namespace);
+    abstract protected function doClear(string $namespace);
 
     /**
      * Removes multiple items from the pool.
@@ -89,10 +89,12 @@ trait AbstractAdapterTrait
      *
      * @return array|bool The identifiers that failed to be cached or a boolean stating if caching succeeded or not
      */
-    abstract protected function doSave(array $values, $lifetime);
+    abstract protected function doSave(array $values, int $lifetime);
 
     /**
      * {@inheritdoc}
+     *
+     * @return bool
      */
     public function hasItem($key)
     {
@@ -113,8 +115,10 @@ trait AbstractAdapterTrait
 
     /**
      * {@inheritdoc}
+     *
+     * @return bool
      */
-    public function clear()
+    public function clear(string $prefix = '')
     {
         $this->deferred = [];
         if ($cleared = $this->versioningIsEnabled) {
@@ -131,7 +135,7 @@ trait AbstractAdapterTrait
         }
 
         try {
-            return $this->doClear($this->namespace) || $cleared;
+            return $this->doClear($this->namespace.$prefix) || $cleared;
         } catch (\Exception $e) {
             CacheItem::log($this->logger, 'Failed to clear the cache: '.$e->getMessage(), ['exception' => $e]);
 
@@ -141,6 +145,8 @@ trait AbstractAdapterTrait
 
     /**
      * {@inheritdoc}
+     *
+     * @return bool
      */
     public function deleteItem($key)
     {
@@ -149,6 +155,8 @@ trait AbstractAdapterTrait
 
     /**
      * {@inheritdoc}
+     *
+     * @return bool
      */
     public function deleteItems(array $keys)
     {
@@ -203,11 +211,13 @@ trait AbstractAdapterTrait
             foreach ($this->doFetch([$id]) as $value) {
                 $isHit = true;
             }
+
+            return $f($key, $value, $isHit);
         } catch (\Exception $e) {
             CacheItem::log($this->logger, 'Failed to fetch key "{key}": '.$e->getMessage(), ['key' => $key, 'exception' => $e]);
         }
 
-        return $f($key, $value, $isHit);
+        return $f($key, null, false);
     }
 
     /**
@@ -236,6 +246,8 @@ trait AbstractAdapterTrait
 
     /**
      * {@inheritdoc}
+     *
+     * @return bool
      */
     public function save(CacheItemInterface $item)
     {
@@ -249,6 +261,8 @@ trait AbstractAdapterTrait
 
     /**
      * {@inheritdoc}
+     *
+     * @return bool
      */
     public function saveDeferred(CacheItemInterface $item)
     {
@@ -294,6 +308,16 @@ trait AbstractAdapterTrait
         $this->ids = [];
     }
 
+    public function __sleep()
+    {
+        throw new \BadMethodCallException('Cannot serialize '.__CLASS__);
+    }
+
+    public function __wakeup()
+    {
+        throw new \BadMethodCallException('Cannot unserialize '.__CLASS__);
+    }
+
     public function __destruct()
     {
         if ($this->deferred) {
@@ -301,7 +325,7 @@ trait AbstractAdapterTrait
         }
     }
 
-    private function generateItems($items, &$keys)
+    private function generateItems(iterable $items, array &$keys): iterable
     {
         $f = $this->createCacheItem;
 

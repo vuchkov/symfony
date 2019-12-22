@@ -18,7 +18,7 @@ use Symfony\Component\Console\Tester\ApplicationTester;
 /**
  * @group functional
  */
-class ContainerDebugCommandTest extends WebTestCase
+class ContainerDebugCommandTest extends AbstractWebTestCase
 {
     public function testDumpContainerIfNotExists()
     {
@@ -45,7 +45,7 @@ class ContainerDebugCommandTest extends WebTestCase
         $tester = new ApplicationTester($application);
         $tester->run(['command' => 'debug:container']);
 
-        $this->assertContains('public', $tester->getDisplay());
+        $this->assertStringContainsString('public', $tester->getDisplay());
     }
 
     public function testPrivateAlias()
@@ -57,15 +57,15 @@ class ContainerDebugCommandTest extends WebTestCase
 
         $tester = new ApplicationTester($application);
         $tester->run(['command' => 'debug:container', '--show-hidden' => true]);
-        $this->assertNotContains('public', $tester->getDisplay());
-        $this->assertNotContains('private_alias', $tester->getDisplay());
+        $this->assertStringNotContainsString('public', $tester->getDisplay());
+        $this->assertStringNotContainsString('private_alias', $tester->getDisplay());
 
         $tester->run(['command' => 'debug:container']);
-        $this->assertContains('public', $tester->getDisplay());
-        $this->assertContains('private_alias', $tester->getDisplay());
+        $this->assertStringContainsString('public', $tester->getDisplay());
+        $this->assertStringContainsString('private_alias', $tester->getDisplay());
 
         $tester->run(['command' => 'debug:container', 'name' => 'private_alias']);
-        $this->assertContains('The "private_alias" service or alias has been removed', $tester->getDisplay());
+        $this->assertStringContainsString('The "private_alias" service or alias has been removed', $tester->getDisplay());
     }
 
     /**
@@ -80,7 +80,7 @@ class ContainerDebugCommandTest extends WebTestCase
 
         $tester = new ApplicationTester($application);
         $tester->run(['command' => 'debug:container', 'name' => $validServiceId]);
-        $this->assertNotContains('No services found', $tester->getDisplay());
+        $this->assertStringNotContainsString('No services found', $tester->getDisplay());
     }
 
     public function testDescribeEnvVars()
@@ -133,7 +133,7 @@ TXT
         $tester = new ApplicationTester($application);
         $tester->run(['command' => 'debug:container', '--env-var' => 'js'], ['decorated' => false]);
 
-        $this->assertContains(file_get_contents(__DIR__.'/Fixtures/describe_env_vars.txt'), $tester->getDisplay(true));
+        $this->assertStringContainsString(file_get_contents(__DIR__.'/Fixtures/describe_env_vars.txt'), $tester->getDisplay(true));
     }
 
     public function provideIgnoreBackslashWhenFindingService()

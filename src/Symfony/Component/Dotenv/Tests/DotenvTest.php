@@ -40,7 +40,7 @@ class DotenvTest extends TestCase
             ['FOO', "Missing = in the environment variable declaration in \".env\" at line 1.\n...FOO...\n     ^ line 1 offset 3"],
             ['FOO="foo', "Missing quote to end the value in \".env\" at line 1.\n...FOO=\"foo...\n          ^ line 1 offset 8"],
             ['FOO=\'foo', "Missing quote to end the value in \".env\" at line 1.\n...FOO='foo...\n          ^ line 1 offset 8"],
-            ['FOO=\'foo'."\n", "Missing quote to end the value in \".env\" at line 1.\n...FOO='foo\\n...\n          ^ line 1 offset 8"],
+            ['FOO=\'foo'."\n", "Missing quote to end the value in \".env\" at line 1.\n...FOO='foo\\n...\n            ^ line 1 offset 9"],
             ['export FOO', "Unable to unset an environment variable in \".env\" at line 1.\n...export FOO...\n            ^ line 1 offset 10"],
             ['FOO=${FOO', "Unclosed braces on variable expansion in \".env\" at line 1.\n...FOO=\${FOO...\n           ^ line 1 offset 9"],
             ['FOO= BAR', "Whitespace are not supported before the value in \".env\" at line 1.\n...FOO= BAR...\n      ^ line 1 offset 4"],
@@ -48,6 +48,9 @@ class DotenvTest extends TestCase
             ['FOO!', "Missing = in the environment variable declaration in \".env\" at line 1.\n...FOO!...\n     ^ line 1 offset 3"],
             ['FOO=$(echo foo', "Missing closing parenthesis. in \".env\" at line 1.\n...FOO=$(echo foo...\n                ^ line 1 offset 14"],
             ['FOO=$(echo foo'."\n", "Missing closing parenthesis. in \".env\" at line 1.\n...FOO=$(echo foo\\n...\n                ^ line 1 offset 14"],
+            ["FOO=\nBAR=\${FOO:-\'a{a}a}", "Unsupported character \"'\" found in the default value of variable \"\$FOO\". in \".env\" at line 2.\n...\\nBAR=\${FOO:-\'a{a}a}...\n                       ^ line 2 offset 24"],
+            ["FOO=\nBAR=\${FOO:-a\$a}", "Unsupported character \"\$\" found in the default value of variable \"\$FOO\". in \".env\" at line 2.\n...FOO=\\nBAR=\${FOO:-a\$a}...\n                       ^ line 2 offset 20"],
+            ["FOO=\nBAR=\${FOO:-a\"a}", "Unclosed braces on variable expansion in \".env\" at line 2.\n...FOO=\\nBAR=\${FOO:-a\"a}...\n                    ^ line 2 offset 17"],
         ];
 
         if ('\\' !== \DIRECTORY_SEPARATOR) {
@@ -69,6 +72,7 @@ class DotenvTest extends TestCase
     public function getEnvData()
     {
         putenv('LOCAL=local');
+        $_ENV['LOCAL'] = 'local';
         $_ENV['REMOTE'] = 'remote';
         $_SERVER['SERVERVAR'] = 'servervar';
 
@@ -111,6 +115,7 @@ class DotenvTest extends TestCase
             ['FOO="bar\rfoo"', ['FOO' => "bar\rfoo"]],
             ['FOO=\'bar\nfoo\'', ['FOO' => 'bar\nfoo']],
             ['FOO=\'bar\rfoo\'', ['FOO' => 'bar\rfoo']],
+            ["FOO='bar\nfoo'", ['FOO' => "bar\nfoo"]],
             ['FOO=" FOO "', ['FOO' => ' FOO ']],
             ['FOO="  "', ['FOO' => '  ']],
             ['PATH="c:\\\\"', ['PATH' => 'c:\\']],
@@ -159,6 +164,15 @@ class DotenvTest extends TestCase
             ['BAR=$REMOTE', ['BAR' => 'remote']],
             ['BAR=$SERVERVAR', ['BAR' => 'servervar']],
             ['FOO=$NOTDEFINED', ['FOO' => '']],
+            ["FOO=BAR\nBAR=\${FOO:-TEST}", ['FOO' => 'BAR', 'BAR' => 'BAR']],
+            ["FOO=BAR\nBAR=\${NOTDEFINED:-TEST}", ['FOO' => 'BAR', 'BAR' => 'TEST']],
+            ["FOO=\nBAR=\${FOO:-TEST}", ['FOO' => '', 'BAR' => 'TEST']],
+            ["FOO=\nBAR=\$FOO:-TEST}", ['FOO' => '', 'BAR' => 'TEST}']],
+            ["FOO=BAR\nBAR=\${FOO:=TEST}", ['FOO' => 'BAR', 'BAR' => 'BAR']],
+            ["FOO=BAR\nBAR=\${NOTDEFINED:=TEST}", ['FOO' => 'BAR', 'NOTDEFINED' => 'TEST', 'BAR' => 'TEST']],
+            ["FOO=\nBAR=\${FOO:=TEST}", ['FOO' => 'TEST', 'BAR' => 'TEST']],
+            ["FOO=\nBAR=\$FOO:=TEST}", ['FOO' => 'TEST', 'BAR' => 'TEST}']],
+            ["FOO=foo\nFOOBAR=\${FOO}\${BAR}", ['FOO' => 'foo', 'FOOBAR' => 'foo']],
         ];
 
         if ('\\' !== \DIRECTORY_SEPARATOR) {
@@ -305,16 +319,14 @@ class DotenvTest extends TestCase
         $this->assertSame('BAZ', $bar);
     }
 
-    /**
-     * @expectedException \Symfony\Component\Dotenv\Exception\PathException
-     */
     public function testLoadDirectory()
     {
+        $this->expectException('Symfony\Component\Dotenv\Exception\PathException');
         $dotenv = new Dotenv(true);
         $dotenv->load(__DIR__);
     }
 
-    public function testServerSuperglobalIsNotOverriden()
+    public function testServerSuperglobalIsNotOverridden()
     {
         $originalValue = $_SERVER['argc'];
 
@@ -324,7 +336,7 @@ class DotenvTest extends TestCase
         $this->assertSame($originalValue, $_SERVER['argc']);
     }
 
-    public function testEnvVarIsNotOverriden()
+    public function testEnvVarIsNotOverridden()
     {
         putenv('TEST_ENV_VAR=original_value');
         $_SERVER['TEST_ENV_VAR'] = 'original_value';
@@ -335,7 +347,7 @@ class DotenvTest extends TestCase
         $this->assertSame('original_value', getenv('TEST_ENV_VAR'));
     }
 
-    public function testHttpVarIsPartiallyOverriden()
+    public function testHttpVarIsPartiallyOverridden()
     {
         $_SERVER['HTTP_TEST_ENV_VAR'] = 'http_value';
 
@@ -413,6 +425,33 @@ class DotenvTest extends TestCase
         $this->assertSame('bar1', getenv('BAR'));
         $this->assertSame('baz1', getenv('BAZ'));
         $this->assertSame('/var/www', getenv('DOCUMENT_ROOT'));
+    }
+
+    public function testGetVariablesValueFromEnvFirst()
+    {
+        $_ENV['APP_ENV'] = 'prod';
+        $dotenv = new Dotenv(true);
+
+        $test = "APP_ENV=dev\nTEST1=foo1_\${APP_ENV}";
+        $values = $dotenv->parse($test);
+        $this->assertSame('foo1_prod', $values['TEST1']);
+
+        if ('\\' !== \DIRECTORY_SEPARATOR) {
+            $test = "APP_ENV=dev\nTEST2=foo2_\$(php -r 'echo \$_SERVER[\"APP_ENV\"];')";
+            $values = $dotenv->parse($test);
+            $this->assertSame('foo2_prod', $values['TEST2']);
+        }
+    }
+
+    public function testGetVariablesValueFromGetenv()
+    {
+        putenv('Foo=Bar');
+
+        $dotenv = new Dotenv(true);
+        $values = $dotenv->parse('Foo=${Foo}');
+        $this->assertSame('Bar', $values['Foo']);
+
+        putenv('Foo');
     }
 
     public function testNoDeprecationWarning()

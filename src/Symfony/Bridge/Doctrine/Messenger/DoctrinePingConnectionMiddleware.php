@@ -14,17 +14,25 @@ namespace Symfony\Bridge\Doctrine\Messenger;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Middleware\StackInterface;
+use Symfony\Component\Messenger\Stamp\ConsumedByWorkerStamp;
 
 /**
  * Checks whether the connection is still open or reconnects otherwise.
  *
  * @author Fuong <insidestyles@gmail.com>
- *
- * @experimental in 4.3
  */
 class DoctrinePingConnectionMiddleware extends AbstractDoctrineMiddleware
 {
     protected function handleForManager(EntityManagerInterface $entityManager, Envelope $envelope, StackInterface $stack): Envelope
+    {
+        if (null !== $envelope->last(ConsumedByWorkerStamp::class)) {
+            $this->pingConnection($entityManager);
+        }
+
+        return $stack->next()->handle($envelope, $stack);
+    }
+
+    private function pingConnection(EntityManagerInterface $entityManager)
     {
         $connection = $entityManager->getConnection();
 
@@ -36,7 +44,5 @@ class DoctrinePingConnectionMiddleware extends AbstractDoctrineMiddleware
         if (!$entityManager->isOpen()) {
             $this->managerRegistry->resetManager($this->entityManagerName);
         }
-
-        return $stack->next()->handle($envelope, $stack);
     }
 }

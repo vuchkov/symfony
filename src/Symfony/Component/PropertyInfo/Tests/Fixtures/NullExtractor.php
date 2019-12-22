@@ -27,54 +27,66 @@ class NullExtractor implements PropertyListExtractorInterface, PropertyDescripti
     /**
      * {@inheritdoc}
      */
-    public function getShortDescription($class, $property, array $context = [])
+    public function getShortDescription($class, $property, array $context = []): ?string
     {
         $this->assertIsString($class);
         $this->assertIsString($property);
+
+        return null;
     }
 
     /**
      * {@inheritdoc}
      */
-    public function getLongDescription($class, $property, array $context = [])
+    public function getLongDescription($class, $property, array $context = []): ?string
     {
         $this->assertIsString($class);
         $this->assertIsString($property);
+
+        return null;
     }
 
     /**
      * {@inheritdoc}
      */
-    public function getTypes($class, $property, array $context = [])
+    public function getTypes($class, $property, array $context = []): ?array
     {
         $this->assertIsString($class);
         $this->assertIsString($property);
+
+        return null;
     }
 
     /**
      * {@inheritdoc}
      */
-    public function isReadable($class, $property, array $context = [])
+    public function isReadable($class, $property, array $context = []): ?bool
     {
         $this->assertIsString($class);
         $this->assertIsString($property);
+
+        return null;
     }
 
     /**
      * {@inheritdoc}
      */
-    public function isWritable($class, $property, array $context = [])
+    public function isWritable($class, $property, array $context = []): ?bool
     {
         $this->assertIsString($class);
         $this->assertIsString($property);
+
+        return null;
     }
 
     /**
      * {@inheritdoc}
      */
-    public function getProperties($class, array $context = [])
+    public function getProperties($class, array $context = []): ?array
     {
         $this->assertIsString($class);
+
+        return null;
     }
 
     /**

@@ -1,8 +1,9 @@
 {
-    "Version": "2.1.47.82",
+    "Version": "36",
     "Names": {
         "fa": "دری",
         "ps": "پشتو",
         "uz": "اوزبیک"
-    }
+    },
+    "LocalizedNames": []
 }

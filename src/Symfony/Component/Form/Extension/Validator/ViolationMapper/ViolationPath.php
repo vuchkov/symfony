@@ -134,7 +134,7 @@ class ViolationPath implements \IteratorAggregate, PropertyPathInterface
     public function getParent()
     {
         if ($this->length <= 1) {
-            return;
+            return null;
         }
 
         $parent = clone $this;
@@ -160,7 +160,7 @@ class ViolationPath implements \IteratorAggregate, PropertyPathInterface
     /**
      * {@inheritdoc}
      */
-    public function getElement($index)
+    public function getElement(int $index)
     {
         if (!isset($this->elements[$index])) {
             throw new OutOfBoundsException(sprintf('The index %s is not within the violation path', $index));
@@ -172,7 +172,7 @@ class ViolationPath implements \IteratorAggregate, PropertyPathInterface
     /**
      * {@inheritdoc}
      */
-    public function isProperty($index)
+    public function isProperty(int $index)
     {
         if (!isset($this->isIndex[$index])) {
             throw new OutOfBoundsException(sprintf('The index %s is not within the violation path', $index));
@@ -184,7 +184,7 @@ class ViolationPath implements \IteratorAggregate, PropertyPathInterface
     /**
      * {@inheritdoc}
      */
-    public function isIndex($index)
+    public function isIndex(int $index)
     {
         if (!isset($this->isIndex[$index])) {
             throw new OutOfBoundsException(sprintf('The index %s is not within the violation path', $index));
@@ -203,13 +203,11 @@ class ViolationPath implements \IteratorAggregate, PropertyPathInterface
      * In this example, "address" and "office" map to forms, while
      * "street does not.
      *
-     * @param int $index The element index
-     *
      * @return bool Whether the element maps to a form
      *
      * @throws OutOfBoundsException if the offset is invalid
      */
-    public function mapsForm($index)
+    public function mapsForm(int $index)
     {
         if (!isset($this->mapsForm[$index])) {
             throw new OutOfBoundsException(sprintf('The index %s is not within the violation path', $index));

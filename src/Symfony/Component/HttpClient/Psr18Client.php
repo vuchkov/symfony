@@ -11,6 +11,7 @@
 
 namespace Symfony\Component\HttpClient;
 
+use Http\Discovery\Psr17FactoryDiscovery;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\Request;
 use Nyholm\Psr7\Uri;
@@ -25,6 +26,8 @@ use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\UriFactoryInterface;
 use Psr\Http\Message\UriInterface;
+use Symfony\Component\HttpClient\Response\ResponseTrait;
+use Symfony\Component\HttpClient\Response\StreamWrapper;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
@@ -44,8 +47,6 @@ if (!interface_exists(ClientInterface::class)) {
  * and stream factories with flex-provided autowiring aliases.
  *
  * @author Nicolas Grekas <p@tchwork.com>
- *
- * @experimental in 4.3
  */
 final class Psr18Client implements ClientInterface, RequestFactoryInterface, StreamFactoryInterface, UriFactoryInterface
 {
@@ -63,13 +64,13 @@ final class Psr18Client implements ClientInterface, RequestFactoryInterface, Str
             return;
         }
 
-        if (!class_exists(Psr17Factory::class)) {
+        if (!class_exists(Psr17Factory::class) && !class_exists(Psr17FactoryDiscovery::class)) {
             throw new \LogicException('You cannot use the "Symfony\Component\HttpClient\Psr18Client" as no PSR-17 factories have been provided. Try running "composer require nyholm/psr7".');
         }
 
-        $psr17Factory = new Psr17Factory();
-        $this->responseFactory = $this->responseFactory ?? $psr17Factory;
-        $this->streamFactory = $this->streamFactory ?? $psr17Factory;
+        $psr17Factory = class_exists(Psr17Factory::class, false) ? new Psr17Factory() : null;
+        $this->responseFactory = $this->responseFactory ?? $psr17Factory ?? Psr17FactoryDiscovery::findResponseFactory();
+        $this->streamFactory = $this->streamFactory ?? $psr17Factory ?? Psr17FactoryDiscovery::findStreamFactory();
     }
 
     /**
@@ -78,9 +79,15 @@ final class Psr18Client implements ClientInterface, RequestFactoryInterface, Str
     public function sendRequest(RequestInterface $request): ResponseInterface
     {
         try {
+            $body = $request->getBody();
+
+            if ($body->isSeekable()) {
+                $body->seek(0);
+            }
+
             $response = $this->client->request($request->getMethod(), (string) $request->getUri(), [
                 'headers' => $request->getHeaders(),
-                'body' => (string) $request->getBody(),
+                'body' => $body->getContents(),
                 'http_version' => '1.0' === $request->getProtocolVersion() ? '1.0' : null,
             ]);
 
@@ -92,7 +99,14 @@ final class Psr18Client implements ClientInterface, RequestFactoryInterface, Str
                 }
             }
 
-            return $psrResponse->withBody($this->streamFactory->createStream($response->getContent(false)));
+            $body = isset(class_uses($response)[ResponseTrait::class]) ? $response->toStream(false) : StreamWrapper::createResource($response, $this->client);
+            $body = $this->streamFactory->createStreamFromResource($body);
+
+            if ($body->isSeekable()) {
+                $body->seek(0);
+            }
+
+            return $psrResponse->withBody($body);
         } catch (TransportExceptionInterface $e) {
             if ($e instanceof \InvalidArgumentException) {
                 throw new Psr18RequestException($e, $request);
@@ -111,11 +125,15 @@ final class Psr18Client implements ClientInterface, RequestFactoryInterface, Str
             return $this->responseFactory->createRequest($method, $uri);
         }
 
-        if (!class_exists(Request::class)) {
-            throw new \LogicException(sprintf('You cannot use "%s()" as the "nyholm/psr7" package is not installed. Try running "composer require nyholm/psr7".', __METHOD__));
+        if (class_exists(Request::class)) {
+            return new Request($method, $uri);
         }
 
-        return new Request($method, $uri);
+        if (class_exists(Psr17FactoryDiscovery::class)) {
+            return Psr17FactoryDiscovery::findRequestFactory()->createRequest($method, $uri);
+        }
+
+        throw new \LogicException(sprintf('You cannot use "%s()" as the "nyholm/psr7" package is not installed. Try running "composer require nyholm/psr7".', __METHOD__));
     }
 
     /**
@@ -123,7 +141,13 @@ final class Psr18Client implements ClientInterface, RequestFactoryInterface, Str
      */
     public function createStream(string $content = ''): StreamInterface
     {
-        return $this->streamFactory->createStream($content);
+        $stream = $this->streamFactory->createStream($content);
+
+        if ($stream->isSeekable()) {
+            $stream->seek(0);
+        }
+
+        return $stream;
     }
 
     /**
@@ -151,18 +175,22 @@ final class Psr18Client implements ClientInterface, RequestFactoryInterface, Str
             return $this->responseFactory->createUri($uri);
         }
 
-        if (!class_exists(Uri::class)) {
-            throw new \LogicException(sprintf('You cannot use "%s()" as the "nyholm/psr7" package is not installed. Try running "composer require nyholm/psr7".', __METHOD__));
+        if (class_exists(Uri::class)) {
+            return new Uri($uri);
         }
 
-        return new Uri($uri);
+        if (class_exists(Psr17FactoryDiscovery::class)) {
+            return Psr17FactoryDiscovery::findUrlFactory()->createUri($uri);
+        }
+
+        throw new \LogicException(sprintf('You cannot use "%s()" as the "nyholm/psr7" package is not installed. Try running "composer require nyholm/psr7".', __METHOD__));
     }
 }
 
 /**
  * @internal
  */
-trait Psr18ExceptionTrait
+class Psr18NetworkException extends \RuntimeException implements NetworkExceptionInterface
 {
     private $request;
 
@@ -181,15 +209,18 @@ trait Psr18ExceptionTrait
 /**
  * @internal
  */
-class Psr18NetworkException extends \RuntimeException implements NetworkExceptionInterface
-{
-    use Psr18ExceptionTrait;
-}
-
-/**
- * @internal
- */
 class Psr18RequestException extends \InvalidArgumentException implements RequestExceptionInterface
 {
-    use Psr18ExceptionTrait;
+    private $request;
+
+    public function __construct(TransportExceptionInterface $e, RequestInterface $request)
+    {
+        parent::__construct($e->getMessage(), 0, $e);
+        $this->request = $request;
+    }
+
+    public function getRequest(): RequestInterface
+    {
+        return $this->request;
+    }
 }

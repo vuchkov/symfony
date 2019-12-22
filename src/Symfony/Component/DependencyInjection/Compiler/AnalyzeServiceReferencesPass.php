@@ -34,7 +34,6 @@ class AnalyzeServiceReferencesPass extends AbstractRecursivePass
     private $onlyConstructorArguments;
     private $hasProxyDumper;
     private $lazy;
-    private $expressionLanguage;
     private $byConstructor;
     private $definitions;
     private $aliases;
@@ -74,7 +73,7 @@ class AnalyzeServiceReferencesPass extends AbstractRecursivePass
         }
     }
 
-    protected function processValue($value, $isRoot = false)
+    protected function processValue($value, bool $isRoot = false)
     {
         $lazy = $this->lazy;
         $inExpression = $this->inExpression();
@@ -129,7 +128,7 @@ class AnalyzeServiceReferencesPass extends AbstractRecursivePass
         $this->lazy = false;
 
         $byConstructor = $this->byConstructor;
-        $this->byConstructor = true;
+        $this->byConstructor = $isRoot || $byConstructor;
         $this->processValue($value->getFactory());
         $this->processValue($value->getArguments());
 

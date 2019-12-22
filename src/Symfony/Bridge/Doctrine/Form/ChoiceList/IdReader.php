@@ -11,8 +11,8 @@
 
 namespace Symfony\Bridge\Doctrine\Form\ChoiceList;
 
-use Doctrine\Common\Persistence\Mapping\ClassMetadata;
-use Doctrine\Common\Persistence\ObjectManager;
+use Doctrine\Persistence\Mapping\ClassMetadata;
+use Doctrine\Persistence\ObjectManager;
 use Symfony\Component\Form\Exception\RuntimeException;
 
 /**
@@ -84,14 +84,12 @@ class IdReader
      *
      * This method assumes that the object has a single-column ID.
      *
-     * @param object $object The object
-     *
      * @return mixed The ID value
      */
-    public function getIdValue($object)
+    public function getIdValue(object $object = null)
     {
         if (!$object) {
-            return;
+            return null;
         }
 
         if (!$this->om->contains($object)) {

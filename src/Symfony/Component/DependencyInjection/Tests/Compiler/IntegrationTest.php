@@ -22,7 +22,9 @@ use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Component\DependencyInjection\Tests\Fixtures\BarTagClass;
 use Symfony\Component\DependencyInjection\Tests\Fixtures\FooBarTaggedClass;
+use Symfony\Component\DependencyInjection\Tests\Fixtures\FooBarTaggedForDefaultPriorityClass;
 use Symfony\Component\DependencyInjection\Tests\Fixtures\FooTagClass;
+use Symfony\Contracts\Service\ServiceProviderInterface;
 use Symfony\Contracts\Service\ServiceSubscriberInterface;
 
 /**
@@ -50,7 +52,7 @@ class IntegrationTest extends TestCase
             ->setPublic(true)
         ;
 
-        $b = $container
+        $container
             ->register('b', '\stdClass')
             ->addArgument(new Reference('c'))
             ->setPublic(false)
@@ -140,6 +142,29 @@ class IntegrationTest extends TestCase
         $container->compile();
 
         $this->assertInstanceOf(DecoratedServiceSubscriber::class, $container->get(ServiceSubscriberStub::class));
+    }
+
+    public function testCanDecorateServiceLocator()
+    {
+        $container = new ContainerBuilder();
+
+        $container->register('foo', 'stdClass')->setPublic(true);
+
+        $container->register(ServiceLocator::class)
+            ->addTag('container.service_locator')
+            ->setArguments([[new Reference('foo')]])
+        ;
+
+        $container->register(DecoratedServiceLocator::class)
+            ->setDecoratedService(ServiceLocator::class)
+            ->setPublic(true)
+            ->setArguments([new Reference(DecoratedServiceLocator::class.'.inner')])
+        ;
+
+        $container->compile();
+
+        $this->assertInstanceOf(DecoratedServiceLocator::class, $container->get(DecoratedServiceLocator::class));
+        $this->assertSame($container->get('foo'), $container->get(DecoratedServiceLocator::class)->get('foo'));
     }
 
     /**
@@ -289,6 +314,30 @@ class IntegrationTest extends TestCase
         $this->assertSame(['bar_tab_class_with_defaultmethod' => $container->get(BarTagClass::class), 'foo' => $container->get(FooTagClass::class)], $param);
     }
 
+    public function testTaggedServiceWithDefaultPriorityMethod()
+    {
+        $container = new ContainerBuilder();
+        $container->register(BarTagClass::class)
+            ->setPublic(true)
+            ->addTag('foo_bar')
+        ;
+        $container->register(FooTagClass::class)
+            ->setPublic(true)
+            ->addTag('foo_bar', ['foo' => 'foo'])
+        ;
+        $container->register(FooBarTaggedForDefaultPriorityClass::class)
+            ->addArgument(new TaggedIteratorArgument('foo_bar', null, null, false, 'getPriority'))
+            ->setPublic(true)
+        ;
+
+        $container->compile();
+
+        $s = $container->get(FooBarTaggedForDefaultPriorityClass::class);
+
+        $param = iterator_to_array($s->getParam()->getIterator());
+        $this->assertSame([$container->get(FooTagClass::class), $container->get(BarTagClass::class)], $param);
+    }
+
     public function testTaggedServiceLocatorWithIndexAttribute()
     {
         $container = new ContainerBuilder();
@@ -406,7 +455,7 @@ class IntegrationTest extends TestCase
 
 class ServiceSubscriberStub implements ServiceSubscriberInterface
 {
-    public static function getSubscribedServices()
+    public static function getSubscribedServices(): array
     {
         return [];
     }
@@ -414,6 +463,34 @@ class ServiceSubscriberStub implements ServiceSubscriberInterface
 
 class DecoratedServiceSubscriber
 {
+}
+
+class DecoratedServiceLocator implements ServiceProviderInterface
+{
+    /**
+     * @var ServiceLocator
+     */
+    private $locator;
+
+    public function __construct(ServiceLocator $locator)
+    {
+        $this->locator = $locator;
+    }
+
+    public function get($id)
+    {
+        return $this->locator->get($id);
+    }
+
+    public function has($id): bool
+    {
+        return $this->locator->has($id);
+    }
+
+    public function getProvidedServices(): array
+    {
+        return $this->locator->getProvidedServices();
+    }
 }
 
 class IntegrationTestStub extends IntegrationTestStubParent

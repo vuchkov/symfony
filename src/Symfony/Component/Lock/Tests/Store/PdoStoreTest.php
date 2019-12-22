@@ -11,6 +11,8 @@
 
 namespace Symfony\Component\Lock\Tests\Store;
 
+use Symfony\Component\Lock\Key;
+use Symfony\Component\Lock\PersistingStoreInterface;
 use Symfony\Component\Lock\Store\PdoStore;
 
 /**
@@ -24,7 +26,7 @@ class PdoStoreTest extends AbstractStoreTest
 
     protected static $dbFile;
 
-    public static function setupBeforeClass()
+    public static function setUpBeforeClass(): void
     {
         self::$dbFile = tempnam(sys_get_temp_dir(), 'sf_sqlite_lock');
 
@@ -32,7 +34,7 @@ class PdoStoreTest extends AbstractStoreTest
         $store->createTable();
     }
 
-    public static function tearDownAfterClass()
+    public static function tearDownAfterClass(): void
     {
         @unlink(self::$dbFile);
     }
@@ -48,7 +50,7 @@ class PdoStoreTest extends AbstractStoreTest
     /**
      * {@inheritdoc}
      */
-    public function getStore()
+    public function getStore(): PersistingStoreInterface
     {
         return new PdoStore('sqlite:'.self::$dbFile);
     }
@@ -56,5 +58,49 @@ class PdoStoreTest extends AbstractStoreTest
     public function testAbortAfterExpiration()
     {
         $this->markTestSkipped('Pdo expects a TTL greater than 1 sec. Simulating a slow network is too hard');
+    }
+
+    public function testInvalidTtl()
+    {
+        $this->expectException('Symfony\Component\Lock\Exception\InvalidTtlException');
+        $store = $this->getStore();
+        $store->putOffExpiration(new Key('toto'), 0.1);
+    }
+
+    public function testInvalidTtlConstruct()
+    {
+        $this->expectException('Symfony\Component\Lock\Exception\InvalidTtlException');
+
+        return new PdoStore('sqlite:'.self::$dbFile, [], 0.1, 0.1);
+    }
+
+    /**
+     * @dataProvider provideDsn
+     */
+    public function testDsn(string $dsn, string $file = null)
+    {
+        $key = new Key(uniqid(__METHOD__, true));
+
+        try {
+            $store = new PdoStore($dsn);
+            $store->createTable();
+
+            $store->save($key);
+            $this->assertTrue($store->exists($key));
+        } finally {
+            if (null !== $file) {
+                @unlink($file);
+            }
+        }
+    }
+
+    public function provideDsn()
+    {
+        $dbFile = tempnam(sys_get_temp_dir(), 'sf_sqlite_cache');
+        yield ['sqlite://localhost/'.$dbFile.'1', $dbFile.'1'];
+        yield ['sqlite:'.$dbFile.'2', $dbFile.'2'];
+        yield ['sqlite3:///'.$dbFile.'3', $dbFile.'3'];
+        yield ['sqlite://localhost/:memory:'];
+        yield ['sqlite::memory:'];
     }
 }

@@ -13,20 +13,18 @@ namespace Symfony\Component\Messenger\Middleware;
 
 use Psr\Log\LoggerAwareTrait;
 use Psr\Log\NullLogger;
+use Symfony\Component\EventDispatcher\Event;
+use Symfony\Component\EventDispatcher\LegacyEventDispatcherProxy;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Event\SendMessageToTransportsEvent;
 use Symfony\Component\Messenger\Stamp\ReceivedStamp;
-use Symfony\Component\Messenger\Stamp\RedeliveryStamp;
 use Symfony\Component\Messenger\Stamp\SentStamp;
-use Symfony\Component\Messenger\Transport\Sender\SenderInterface;
 use Symfony\Component\Messenger\Transport\Sender\SendersLocatorInterface;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
  * @author Samuel Roze <samuel.roze@gmail.com>
  * @author Tobias Schultze <http://tobion.de>
- *
- * @experimental in 4.3
  */
 class SendMessageMiddleware implements MiddlewareInterface
 {
@@ -38,7 +36,7 @@ class SendMessageMiddleware implements MiddlewareInterface
     public function __construct(SendersLocatorInterface $sendersLocator, EventDispatcherInterface $eventDispatcher = null)
     {
         $this->sendersLocator = $sendersLocator;
-        $this->eventDispatcher = $eventDispatcher;
+        $this->eventDispatcher = class_exists(Event::class) ? LegacyEventDispatcherProxy::decorate($eventDispatcher) : $eventDispatcher;
         $this->logger = new NullLogger();
     }
 
@@ -58,12 +56,8 @@ class SendMessageMiddleware implements MiddlewareInterface
             // it's a received message, do not send it back
             $this->logger->info('Received message {class}', $context);
         } else {
-            /** @var RedeliveryStamp|null $redeliveryStamp */
-            $redeliveryStamp = $envelope->last(RedeliveryStamp::class);
-
-            // dispatch event unless this is a redelivery
-            $shouldDispatchEvent = null === $redeliveryStamp;
-            foreach ($this->getSenders($envelope, $redeliveryStamp) as $alias => $sender) {
+            $shouldDispatchEvent = true;
+            foreach ($this->sendersLocator->getSenders($envelope) as $alias => $sender) {
                 if (null !== $this->eventDispatcher && $shouldDispatchEvent) {
                     $event = new SendMessageToTransportsEvent($envelope);
                     $this->eventDispatcher->dispatch($event);
@@ -82,19 +76,5 @@ class SendMessageMiddleware implements MiddlewareInterface
 
         // message should only be sent and not be handled by the next middleware
         return $envelope;
-    }
-
-    /**
-     * * @return iterable|SenderInterface[]
-     */
-    private function getSenders(Envelope $envelope, ?RedeliveryStamp $redeliveryStamp): iterable
-    {
-        if (null !== $redeliveryStamp) {
-            return [
-                $redeliveryStamp->getSenderClassOrAlias() => $this->sendersLocator->getSenderByAlias($redeliveryStamp->getSenderClassOrAlias()),
-            ];
-        }
-
-        return $this->sendersLocator->getSenders($envelope);
     }
 }

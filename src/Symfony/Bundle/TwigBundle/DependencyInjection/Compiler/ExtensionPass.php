@@ -11,6 +11,7 @@
 
 namespace Symfony\Bundle\TwigBundle\DependencyInjection\Compiler;
 
+use Symfony\Bridge\Twig\Extension\AssetExtension;
 use Symfony\Component\DependencyInjection\Alias;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -39,16 +40,40 @@ class ExtensionPass implements CompilerPassInterface
             $container->removeDefinition('twig.extension.yaml');
         }
 
+        $viewDir = \dirname((new \ReflectionClass('Symfony\Bridge\Twig\Extension\FormExtension'))->getFileName(), 2).'/Resources/views';
+        $templateIterator = $container->getDefinition('twig.template_iterator');
+        $templatePaths = $templateIterator->getArgument(1);
+        $cacheWarmer = null;
+        if ($container->hasDefinition('twig.cache_warmer')) {
+            $cacheWarmer = $container->getDefinition('twig.cache_warmer');
+            $cacheWarmerPaths = $cacheWarmer->getArgument(2);
+        }
+        $loader = $container->getDefinition('twig.loader.native_filesystem');
+
+        if ($container->has('mailer')) {
+            $emailPath = $viewDir.'/Email';
+            $loader->addMethodCall('addPath', [$emailPath, 'email']);
+            $loader->addMethodCall('addPath', [$emailPath, '!email']);
+            $templatePaths[$emailPath] = 'email';
+            if ($cacheWarmer) {
+                $cacheWarmerPaths[$emailPath] = 'email';
+            }
+        }
+
         if ($container->has('form.extension')) {
             $container->getDefinition('twig.extension.form')->addTag('twig.extension');
-            $reflClass = new \ReflectionClass('Symfony\Bridge\Twig\Extension\FormExtension');
 
-            $coreThemePath = \dirname(\dirname($reflClass->getFileName())).'/Resources/views/Form';
-            $container->getDefinition('twig.loader.native_filesystem')->addMethodCall('addPath', [$coreThemePath]);
+            $coreThemePath = $viewDir.'/Form';
+            $loader->addMethodCall('addPath', [$coreThemePath]);
+            $templatePaths[$coreThemePath] = null;
+            if ($cacheWarmer) {
+                $cacheWarmerPaths[$coreThemePath] = null;
+            }
+        }
 
-            $paths = $container->getDefinition('twig.template_iterator')->getArgument(1);
-            $paths[$coreThemePath] = null;
-            $container->getDefinition('twig.template_iterator')->replaceArgument(1, $paths);
+        $templateIterator->replaceArgument(1, $templatePaths);
+        if ($cacheWarmer) {
+            $container->getDefinition('twig.cache_warmer')->replaceArgument(2, $cacheWarmerPaths);
         }
 
         if ($container->has('router')) {

@@ -5,11 +5,13 @@ CHANGELOG
 -----
 
  * The methods `DebugProcessor::getLogs()`, `DebugProcessor::countErrors()`, `Logger::getLogs()` and `Logger::countErrors()` have a new `$request` argument.
+ * Added support for Monolog 2.
 
 4.4.0
 -----
 
 * The `RouteProcessor` class has been made final
+* Added `ElasticsearchLogstashHandler`
 
 4.3.0
 -----

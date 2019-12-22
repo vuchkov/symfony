@@ -15,8 +15,6 @@ namespace Symfony\Component\Messenger\Handler;
  * Handlers can implement this interface to handle multiple messages.
  *
  * @author Samuel Roze <samuel.roze@gmail.com>
- *
- * @experimental in 4.3
  */
 interface MessageSubscriberInterface extends MessageHandlerInterface
 {
@@ -30,7 +28,7 @@ interface MessageSubscriberInterface extends MessageHandlerInterface
      * It can also change the priority per classes.
      *
      *     yield FirstMessage::class => ['priority' => 0];
-     *     yield SecondMessage::class => ['priority => -10];
+     *     yield SecondMessage::class => ['priority' => -10];
      *
      * It can also specify a method, a priority, a bus and/or a transport per message:
      *

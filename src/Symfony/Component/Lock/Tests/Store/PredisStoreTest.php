@@ -16,7 +16,7 @@ namespace Symfony\Component\Lock\Tests\Store;
  */
 class PredisStoreTest extends AbstractRedisStoreTest
 {
-    public static function setupBeforeClass()
+    public static function setUpBeforeClass(): void
     {
         $redis = new \Predis\Client('tcp://'.getenv('REDIS_HOST').':6379');
         try {
@@ -26,7 +26,10 @@ class PredisStoreTest extends AbstractRedisStoreTest
         }
     }
 
-    protected function getRedisConnection()
+    /**
+     * @return \Predis\Client
+     */
+    protected function getRedisConnection(): object
     {
         $redis = new \Predis\Client('tcp://'.getenv('REDIS_HOST').':6379');
         $redis->connect();

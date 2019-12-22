@@ -21,29 +21,27 @@ use Symfony\Component\Messenger\Transport\Doctrine\Connection;
  */
 class DoctrineIntegrationTest extends TestCase
 {
+    /** @var \Doctrine\DBAL\Connection */
     private $driverConnection;
+    /** @var Connection */
     private $connection;
+    /** @var string */
+    private $sqliteFile;
 
-    /**
-     * @after
-     */
-    public function cleanup()
+    protected function setUp(): void
     {
-        @unlink(sys_get_temp_dir().'/symfony.messenger.sqlite');
-    }
-
-    /**
-     * @before
-     */
-    public function createConnection()
-    {
-        $dsn = getenv('MESSENGER_DOCTRINE_DSN') ?: 'sqlite:///'.sys_get_temp_dir().'/symfony.messenger.sqlite';
+        $this->sqliteFile = sys_get_temp_dir().'/symfony.messenger.sqlite';
+        $dsn = getenv('MESSENGER_DOCTRINE_DSN') ?: 'sqlite:///'.$this->sqliteFile;
         $this->driverConnection = DriverManager::getConnection(['url' => $dsn]);
         $this->connection = new Connection([], $this->driverConnection);
-        // call send to auto-setup the table
-        $this->connection->setup();
-        // ensure the table is clean for tests
-        $this->driverConnection->exec('DELETE FROM messenger_messages');
+    }
+
+    protected function tearDown(): void
+    {
+        $this->driverConnection->close();
+        if (file_exists($this->sqliteFile)) {
+            unlink($this->sqliteFile);
+        }
     }
 
     public function testConnectionSendAndGet()
@@ -75,31 +73,32 @@ class DoctrineIntegrationTest extends TestCase
 
     public function testItRetrieveTheFirstAvailableMessage()
     {
+        $this->connection->setup();
         // insert messages
         // one currently handled
         $this->driverConnection->insert('messenger_messages', [
             'body' => '{"message": "Hi handled"}',
             'headers' => json_encode(['type' => DummyMessage::class]),
             'queue_name' => 'default',
-            'created_at' => Connection::formatDateTime(new \DateTime('2019-03-15 12:00:00')),
-            'available_at' => Connection::formatDateTime(new \DateTime('2019-03-15 12:00:00')),
-            'delivered_at' => Connection::formatDateTime(new \DateTime()),
+            'created_at' => $this->formatDateTime(new \DateTime('2019-03-15 12:00:00')),
+            'available_at' => $this->formatDateTime(new \DateTime('2019-03-15 12:00:00')),
+            'delivered_at' => $this->formatDateTime(new \DateTime()),
         ]);
         // one available later
         $this->driverConnection->insert('messenger_messages', [
             'body' => '{"message": "Hi delayed"}',
             'headers' => json_encode(['type' => DummyMessage::class]),
             'queue_name' => 'default',
-            'created_at' => Connection::formatDateTime(new \DateTime('2019-03-15 12:00:00')),
-            'available_at' => Connection::formatDateTime(new \DateTime('2019-03-15 13:00:00')),
+            'created_at' => $this->formatDateTime(new \DateTime('2019-03-15 12:00:00')),
+            'available_at' => $this->formatDateTime(new \DateTime('2019-03-15 13:00:00')),
         ]);
         // one available
         $this->driverConnection->insert('messenger_messages', [
             'body' => '{"message": "Hi available"}',
             'headers' => json_encode(['type' => DummyMessage::class]),
             'queue_name' => 'default',
-            'created_at' => Connection::formatDateTime(new \DateTime('2019-03-15 12:00:00')),
-            'available_at' => Connection::formatDateTime(new \DateTime('2019-03-15 12:30:00')),
+            'created_at' => $this->formatDateTime(new \DateTime('2019-03-15 12:00:00')),
+            'available_at' => $this->formatDateTime(new \DateTime('2019-03-15 12:30:00')),
         ]);
 
         $encoded = $this->connection->get();
@@ -108,39 +107,40 @@ class DoctrineIntegrationTest extends TestCase
 
     public function testItCountMessages()
     {
+        $this->connection->setup();
         // insert messages
         // one currently handled
         $this->driverConnection->insert('messenger_messages', [
             'body' => '{"message": "Hi handled"}',
             'headers' => json_encode(['type' => DummyMessage::class]),
             'queue_name' => 'default',
-            'created_at' => Connection::formatDateTime(new \DateTime('2019-03-15 12:00:00')),
-            'available_at' => Connection::formatDateTime(new \DateTime('2019-03-15 12:00:00')),
-            'delivered_at' => Connection::formatDateTime(new \DateTime()),
+            'created_at' => $this->formatDateTime(new \DateTime('2019-03-15 12:00:00')),
+            'available_at' => $this->formatDateTime(new \DateTime('2019-03-15 12:00:00')),
+            'delivered_at' => $this->formatDateTime(new \DateTime()),
         ]);
         // one available later
         $this->driverConnection->insert('messenger_messages', [
             'body' => '{"message": "Hi delayed"}',
             'headers' => json_encode(['type' => DummyMessage::class]),
             'queue_name' => 'default',
-            'created_at' => Connection::formatDateTime(new \DateTime('2019-03-15 12:00:00')),
-            'available_at' => Connection::formatDateTime((new \DateTime())->modify('+1 minute')),
+            'created_at' => $this->formatDateTime(new \DateTime('2019-03-15 12:00:00')),
+            'available_at' => $this->formatDateTime((new \DateTime())->modify('+1 minute')),
         ]);
         // one available
         $this->driverConnection->insert('messenger_messages', [
             'body' => '{"message": "Hi available"}',
             'headers' => json_encode(['type' => DummyMessage::class]),
             'queue_name' => 'default',
-            'created_at' => Connection::formatDateTime(new \DateTime('2019-03-15 12:00:00')),
-            'available_at' => Connection::formatDateTime(new \DateTime('2019-03-15 12:30:00')),
+            'created_at' => $this->formatDateTime(new \DateTime('2019-03-15 12:00:00')),
+            'available_at' => $this->formatDateTime(new \DateTime('2019-03-15 12:30:00')),
         ]);
         // another available
         $this->driverConnection->insert('messenger_messages', [
             'body' => '{"message": "Hi available"}',
             'headers' => json_encode(['type' => DummyMessage::class]),
             'queue_name' => 'default',
-            'created_at' => Connection::formatDateTime(new \DateTime('2019-03-15 12:00:00')),
-            'available_at' => Connection::formatDateTime(new \DateTime('2019-03-15 12:30:00')),
+            'created_at' => $this->formatDateTime(new \DateTime('2019-03-15 12:00:00')),
+            'available_at' => $this->formatDateTime(new \DateTime('2019-03-15 12:30:00')),
         ]);
 
         $this->assertSame(2, $this->connection->getMessageCount());
@@ -148,22 +148,23 @@ class DoctrineIntegrationTest extends TestCase
 
     public function testItRetrieveTheMessageThatIsOlderThanRedeliverTimeout()
     {
+        $this->connection->setup();
         $twoHoursAgo = new \DateTime('now');
         $twoHoursAgo->modify('-2 hours');
         $this->driverConnection->insert('messenger_messages', [
             'body' => '{"message": "Hi requeued"}',
             'headers' => json_encode(['type' => DummyMessage::class]),
             'queue_name' => 'default',
-            'created_at' => Connection::formatDateTime(new \DateTime('2019-03-15 12:00:00')),
-            'available_at' => Connection::formatDateTime(new \DateTime('2019-03-15 12:00:00')),
-            'delivered_at' => Connection::formatDateTime($twoHoursAgo),
+            'created_at' => $this->formatDateTime(new \DateTime('2019-03-15 12:00:00')),
+            'available_at' => $this->formatDateTime(new \DateTime('2019-03-15 12:00:00')),
+            'delivered_at' => $this->formatDateTime($twoHoursAgo),
         ]);
         $this->driverConnection->insert('messenger_messages', [
             'body' => '{"message": "Hi available"}',
             'headers' => json_encode(['type' => DummyMessage::class]),
             'queue_name' => 'default',
-            'created_at' => Connection::formatDateTime(new \DateTime('2019-03-15 12:00:00')),
-            'available_at' => Connection::formatDateTime(new \DateTime('2019-03-15 12:30:00')),
+            'created_at' => $this->formatDateTime(new \DateTime('2019-03-15 12:00:00')),
+            'available_at' => $this->formatDateTime(new \DateTime('2019-03-15 12:30:00')),
         ]);
 
         $next = $this->connection->get();
@@ -173,14 +174,16 @@ class DoctrineIntegrationTest extends TestCase
 
     public function testTheTransportIsSetupOnGet()
     {
-        // If the table does not exist and we call the get (i.e run messenger:consume) the table must be setup
-        // so first delete the tables
-        $this->driverConnection->exec('DROP TABLE messenger_messages');
-
+        $this->assertFalse($this->driverConnection->getSchemaManager()->tablesExist('messenger_messages'));
         $this->assertNull($this->connection->get());
 
         $this->connection->send('the body', ['my' => 'header']);
         $envelope = $this->connection->get();
         $this->assertEquals('the body', $envelope['body']);
+    }
+
+    private function formatDateTime(\DateTime $dateTime)
+    {
+        return $dateTime->format($this->driverConnection->getDatabasePlatform()->getDateTimeFormatString());
     }
 }

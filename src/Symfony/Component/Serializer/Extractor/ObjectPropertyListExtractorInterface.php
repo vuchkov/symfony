@@ -13,17 +13,13 @@ namespace Symfony\Component\Serializer\Extractor;
 
 /**
  * @author David Maicher <mail@dmaicher.de>
- *
- * @experimental in 4.3
  */
 interface ObjectPropertyListExtractorInterface
 {
     /**
      * Gets the list of properties available for the given object.
      *
-     * @param object $object
-     *
      * @return string[]|null
      */
-    public function getProperties($object, array $context = []): ?array;
+    public function getProperties(object $object, array $context = []): ?array;
 }

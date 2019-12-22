@@ -12,7 +12,7 @@
 namespace Symfony\Component\HttpKernel\Tests\DataCollector;
 
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Debug\Exception\SilencedErrorContext;
+use Symfony\Component\ErrorHandler\Exception\SilencedErrorContext;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
@@ -27,7 +27,7 @@ class LoggerDataCollectorTest extends TestCase
             ->getMockBuilder('Symfony\Component\HttpKernel\Log\DebugLoggerInterface')
             ->setMethods(['countErrors', 'getLogs', 'clear'])
             ->getMock();
-        $logger->expects($this->once())->method('countErrors')->willReturn('foo');
+        $logger->expects($this->once())->method('countErrors')->willReturn(123);
         $logger->expects($this->exactly(2))->method('getLogs')->willReturn([]);
 
         $c = new LoggerDataCollector($logger, __DIR__.'/');
@@ -106,7 +106,7 @@ class LoggerDataCollectorTest extends TestCase
         $logs = array_map(function ($v) {
             if (isset($v['context']['exception'])) {
                 $e = &$v['context']['exception'];
-                $e = isset($e["\0*\0message"]) ? [$e["\0*\0message"], $e["\0*\0severity"]] : [$e["\0Symfony\Component\Debug\Exception\SilencedErrorContext\0severity"]];
+                $e = isset($e["\0*\0message"]) ? [$e["\0*\0message"], $e["\0*\0severity"]] : [$e["\0Symfony\Component\ErrorHandler\Exception\SilencedErrorContext\0severity"]];
             }
 
             return $v;

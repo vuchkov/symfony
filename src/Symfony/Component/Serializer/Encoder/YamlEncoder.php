@@ -14,6 +14,7 @@ namespace Symfony\Component\Serializer\Encoder;
 use Symfony\Component\Serializer\Exception\RuntimeException;
 use Symfony\Component\Yaml\Dumper;
 use Symfony\Component\Yaml\Parser;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Encodes YAML data.
@@ -24,6 +25,8 @@ class YamlEncoder implements EncoderInterface, DecoderInterface
 {
     const FORMAT = 'yaml';
     private const ALTERNATIVE_FORMAT = 'yml';
+
+    public const PRESERVE_EMPTY_OBJECTS = 'preserve_empty_objects';
 
     private $dumper;
     private $parser;
@@ -43,9 +46,13 @@ class YamlEncoder implements EncoderInterface, DecoderInterface
     /**
      * {@inheritdoc}
      */
-    public function encode($data, $format, array $context = [])
+    public function encode($data, string $format, array $context = [])
     {
         $context = array_merge($this->defaultContext, $context);
+
+        if (isset($context[self::PRESERVE_EMPTY_OBJECTS])) {
+            $context['yaml_flags'] |= Yaml::DUMP_OBJECT_AS_MAP;
+        }
 
         return $this->dumper->dump($data, $context['yaml_inline'], $context['yaml_indent'], $context['yaml_flags']);
     }
@@ -53,7 +60,7 @@ class YamlEncoder implements EncoderInterface, DecoderInterface
     /**
      * {@inheritdoc}
      */
-    public function supportsEncoding($format)
+    public function supportsEncoding(string $format)
     {
         return self::FORMAT === $format || self::ALTERNATIVE_FORMAT === $format;
     }
@@ -61,7 +68,7 @@ class YamlEncoder implements EncoderInterface, DecoderInterface
     /**
      * {@inheritdoc}
      */
-    public function decode($data, $format, array $context = [])
+    public function decode(string $data, string $format, array $context = [])
     {
         $context = array_merge($this->defaultContext, $context);
 
@@ -71,7 +78,7 @@ class YamlEncoder implements EncoderInterface, DecoderInterface
     /**
      * {@inheritdoc}
      */
-    public function supportsDecoding($format)
+    public function supportsDecoding(string $format)
     {
         return self::FORMAT === $format || self::ALTERNATIVE_FORMAT === $format;
     }

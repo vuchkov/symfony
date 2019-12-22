@@ -23,7 +23,7 @@
                 <argument type="service" id="validator.validator_factory" />
             </call>
             <call method="setTranslator">
-                <argument type="service" id="translator" />
+                <argument type="service" id="translator" on-invalid="ignore" />
             </call>
             <call method="setTranslationDomain">
                 <argument>%validator.translation_domain%</argument>
@@ -38,14 +38,10 @@
             <tag name="kernel.cache_warmer" />
         </service>
 
-        <service id="validator.mapping.cache.symfony" class="Symfony\Component\Validator\Mapping\Cache\Psr6Cache">
-            <argument type="service">
-                <service class="Symfony\Component\Cache\Adapter\PhpArrayAdapter">
-                    <factory class="Symfony\Component\Cache\Adapter\PhpArrayAdapter" method="create" />
-                    <argument>%validator.mapping.cache.file%</argument>
-                    <argument type="service" id="cache.validator" />
-                </service>
-            </argument>
+        <service id="validator.mapping.cache.adapter" class="Symfony\Component\Cache\Adapter\PhpArrayAdapter">
+            <factory class="Symfony\Component\Cache\Adapter\PhpArrayAdapter" method="create" />
+            <argument>%validator.mapping.cache.file%</argument>
+            <argument type="service" id="cache.validator" />
         </service>
 
         <service id="validator.validator_factory" class="Symfony\Component\Validator\ContainerConstraintValidatorFactory">

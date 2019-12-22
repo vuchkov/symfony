@@ -38,7 +38,7 @@ class PropertyPathMapperTest extends TestCase
      */
     private $propertyAccessor;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         $this->dispatcher = new EventDispatcher();
         $this->propertyAccessor = PropertyAccess::createPropertyAccessor();
@@ -333,7 +333,7 @@ class PropertyPathMapperTest extends TestCase
 
 class SubmittedForm extends Form
 {
-    public function isSubmitted()
+    public function isSubmitted(): bool
     {
         return true;
     }
@@ -341,7 +341,7 @@ class SubmittedForm extends Form
 
 class NotSynchronizedForm extends Form
 {
-    public function isSynchronized()
+    public function isSynchronized(): bool
     {
         return false;
     }

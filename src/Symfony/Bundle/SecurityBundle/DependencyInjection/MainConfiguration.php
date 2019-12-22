@@ -76,7 +76,7 @@ class MainConfiguration implements ConfigurationInterface
                     ->addDefaultsIfNotSet()
                     ->children()
                         ->enumNode('strategy')
-                            ->values([AccessDecisionManager::STRATEGY_AFFIRMATIVE, AccessDecisionManager::STRATEGY_CONSENSUS, AccessDecisionManager::STRATEGY_UNANIMOUS])
+                            ->values($this->getAccessDecisionStrategies())
                         ->end()
                         ->scalarNode('service')->end()
                         ->booleanNode('allow_if_all_abstain')->defaultFalse()->end()
@@ -232,22 +232,12 @@ class MainConfiguration implements ConfigurationInterface
                     ->end()
                 ->end()
             ->end()
-            ->arrayNode('anonymous')
-                ->canBeUnset()
-                ->children()
-                    ->scalarNode('secret')->defaultNull()->end()
-                ->end()
-            ->end()
             ->arrayNode('switch_user')
                 ->canBeUnset()
                 ->children()
                     ->scalarNode('provider')->end()
                     ->scalarNode('parameter')->defaultValue('_switch_user')->end()
                     ->scalarNode('role')->defaultValue('ROLE_ALLOWED_TO_SWITCH')->end()
-                    ->booleanNode('stateless')
-                        ->setDeprecated('The "%path%.%node%" configuration key has been deprecated in Symfony 4.1.')
-                        ->defaultValue(false)
-                    ->end()
                 ->end()
             ->end()
         ;
@@ -372,7 +362,17 @@ class MainConfiguration implements ConfigurationInterface
                         ->performNoDeepMerging()
                         ->beforeNormalization()->ifString()->then(function ($v) { return ['algorithm' => $v]; })->end()
                         ->children()
-                            ->scalarNode('algorithm')->cannotBeEmpty()->end()
+                            ->scalarNode('algorithm')
+                                ->cannotBeEmpty()
+                                ->validate()
+                                    ->ifTrue(function ($v) { return !\is_string($v); })
+                                    ->thenInvalid('You must provide a string value.')
+                                ->end()
+                            ->end()
+                            ->arrayNode('migrate_from')
+                                ->prototype('scalar')->end()
+                                ->beforeNormalization()->castToArray()->end()
+                            ->end()
                             ->scalarNode('hash_algorithm')->info('Name of hashing algorithm for PBKDF2 (i.e. sha256, sha512, etc..) See hash_algos() for a list of supported algorithms.')->defaultValue('sha512')->end()
                             ->scalarNode('key_length')->defaultValue(40)->end()
                             ->booleanNode('ignore_case')->defaultFalse()->end()
@@ -391,5 +391,20 @@ class MainConfiguration implements ConfigurationInterface
                 ->end()
             ->end()
         ;
+    }
+
+    private function getAccessDecisionStrategies()
+    {
+        $strategies = [
+            AccessDecisionManager::STRATEGY_AFFIRMATIVE,
+            AccessDecisionManager::STRATEGY_CONSENSUS,
+            AccessDecisionManager::STRATEGY_UNANIMOUS,
+        ];
+
+        if (\defined(AccessDecisionManager::class.'::STRATEGY_PRIORITY')) {
+            $strategies[] = AccessDecisionManager::STRATEGY_PRIORITY;
+        }
+
+        return $strategies;
     }
 }

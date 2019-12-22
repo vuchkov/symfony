@@ -35,7 +35,7 @@ final class Dotenv
     private $data;
     private $end;
     private $values;
-    private $usePutenv = true;
+    private $usePutenv;
 
     /**
      * @var bool If `putenv()` should be used to define environment variables or not.
@@ -252,29 +252,24 @@ final class Dotenv
             throw $this->createFormatException('Whitespace are not supported before the value');
         }
 
+        $loadedVars = array_flip(explode(',', isset($_SERVER['SYMFONY_DOTENV_VARS']) ? $_SERVER['SYMFONY_DOTENV_VARS'] : (isset($_ENV['SYMFONY_DOTENV_VARS']) ? $_ENV['SYMFONY_DOTENV_VARS'] : '')));
+        unset($loadedVars['']);
         $v = '';
 
         do {
             if ("'" === $this->data[$this->cursor]) {
-                $value = '';
-                ++$this->cursor;
+                $len = 0;
 
-                while ("\n" !== $this->data[$this->cursor]) {
-                    if ("'" === $this->data[$this->cursor]) {
-                        break;
-                    }
-                    $value .= $this->data[$this->cursor];
-                    ++$this->cursor;
+                do {
+                    if ($this->cursor + ++$len === $this->end) {
+                        $this->cursor += $len;
 
-                    if ($this->cursor === $this->end) {
                         throw $this->createFormatException('Missing quote to end the value');
                     }
-                }
-                if ("\n" === $this->data[$this->cursor]) {
-                    throw $this->createFormatException('Missing quote to end the value');
-                }
-                ++$this->cursor;
-                $v .= $value;
+                } while ("'" !== $this->data[$this->cursor + $len]);
+
+                $v .= substr($this->data, 1 + $this->cursor, $len - 1);
+                $this->cursor += 1 + $len;
             } elseif ('"' === $this->data[$this->cursor]) {
                 $value = '';
                 ++$this->cursor;
@@ -290,8 +285,8 @@ final class Dotenv
                 ++$this->cursor;
                 $value = str_replace(['\\"', '\r', '\n'], ['"', "\r", "\n"], $value);
                 $resolvedValue = $value;
-                $resolvedValue = $this->resolveVariables($resolvedValue);
-                $resolvedValue = $this->resolveCommands($resolvedValue);
+                $resolvedValue = $this->resolveVariables($resolvedValue, $loadedVars);
+                $resolvedValue = $this->resolveCommands($resolvedValue, $loadedVars);
                 $resolvedValue = str_replace('\\\\', '\\', $resolvedValue);
                 $v .= $resolvedValue;
             } else {
@@ -313,8 +308,8 @@ final class Dotenv
                 }
                 $value = rtrim($value);
                 $resolvedValue = $value;
-                $resolvedValue = $this->resolveVariables($resolvedValue);
-                $resolvedValue = $this->resolveCommands($resolvedValue);
+                $resolvedValue = $this->resolveVariables($resolvedValue, $loadedVars);
+                $resolvedValue = $this->resolveCommands($resolvedValue, $loadedVars);
                 $resolvedValue = str_replace('\\\\', '\\', $resolvedValue);
 
                 if ($resolvedValue === $value && preg_match('/\s+/', $value)) {
@@ -367,7 +362,7 @@ final class Dotenv
         }
     }
 
-    private function resolveCommands($value)
+    private function resolveCommands(string $value, array $loadedVars): string
     {
         if (false === strpos($value, '$')) {
             return $value;
@@ -383,7 +378,7 @@ final class Dotenv
             )
         /x';
 
-        return preg_replace_callback($regex, function ($matches) {
+        return preg_replace_callback($regex, function ($matches) use ($loadedVars) {
             if ('\\' === $matches[1]) {
                 return substr($matches[0], 1);
             }
@@ -397,8 +392,20 @@ final class Dotenv
             }
 
             $process = method_exists(Process::class, 'fromShellCommandline') ? Process::fromShellCommandline('echo '.$matches[0]) : new Process('echo '.$matches[0]);
-            $process->inheritEnvironmentVariables(true);
-            $process->setEnv($this->values);
+
+            if (!method_exists(Process::class, 'fromShellCommandline')) {
+                // Symfony 3.4 does not inherit env vars by default:
+                $process->inheritEnvironmentVariables();
+            }
+
+            $env = [];
+            foreach ($this->values as $name => $value) {
+                if (isset($loadedVars[$name]) || (!isset($_ENV[$name]) && !(isset($_SERVER[$name]) && 0 !== strpos($name, 'HTTP_')))) {
+                    $env[$name] = $value;
+                }
+            }
+            $process->setEnv($env);
+
             try {
                 $process->mustRun();
             } catch (ProcessException $e) {
@@ -409,7 +416,7 @@ final class Dotenv
         }, $value);
     }
 
-    private function resolveVariables($value)
+    private function resolveVariables(string $value, array $loadedVars): string
     {
         if (false === strpos($value, '$')) {
             return $value;
@@ -422,10 +429,11 @@ final class Dotenv
             (?!\()                             # no opening parenthesis
             (?P<opening_brace>\{)?             # optional brace
             (?P<name>'.self::VARNAME_REGEX.')? # var name
+            (?P<default_value>:[-=][^\}]++)?   # optional default value
             (?P<closing_brace>\})?             # optional closing brace
         /x';
 
-        $value = preg_replace_callback($regex, function ($matches) {
+        $value = preg_replace_callback($regex, function ($matches) use ($loadedVars) {
             // odd number of backslashes means the $ character is escaped
             if (1 === \strlen($matches['backslashes']) % 2) {
                 return substr($matches[0], 1);
@@ -441,14 +449,29 @@ final class Dotenv
             }
 
             $name = $matches['name'];
-            if (isset($this->values[$name])) {
+            if (isset($loadedVars[$name]) && isset($this->values[$name])) {
                 $value = $this->values[$name];
-            } elseif (isset($_SERVER[$name]) && 0 !== strpos($name, 'HTTP_')) {
-                $value = $_SERVER[$name];
             } elseif (isset($_ENV[$name])) {
                 $value = $_ENV[$name];
+            } elseif (isset($_SERVER[$name]) && 0 !== strpos($name, 'HTTP_')) {
+                $value = $_SERVER[$name];
+            } elseif (isset($this->values[$name])) {
+                $value = $this->values[$name];
             } else {
                 $value = (string) getenv($name);
+            }
+
+            if ('' === $value && isset($matches['default_value']) && '' !== $matches['default_value']) {
+                $unsupportedChars = strpbrk($matches['default_value'], '\'"{$');
+                if (false !== $unsupportedChars) {
+                    throw $this->createFormatException(sprintf('Unsupported character "%s" found in the default value of variable "$%s".', $unsupportedChars[0], $name));
+                }
+
+                $value = substr($matches['default_value'], 2);
+
+                if ('=' === $matches['default_value'][1]) {
+                    $this->values[$name] = $value;
+                }
             }
 
             if (!$matches['opening_brace'] && isset($matches['closing_brace'])) {
@@ -461,13 +484,13 @@ final class Dotenv
         return $value;
     }
 
-    private function moveCursor($text)
+    private function moveCursor(string $text)
     {
         $this->cursor += \strlen($text);
         $this->lineno += substr_count($text, "\n");
     }
 
-    private function createFormatException($message): FormatException
+    private function createFormatException(string $message): FormatException
     {
         return new FormatException($message, new FormatExceptionContext($this->data, $this->path, $this->lineno, $this->cursor));
     }

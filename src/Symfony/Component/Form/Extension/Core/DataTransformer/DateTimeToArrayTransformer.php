@@ -24,6 +24,7 @@ class DateTimeToArrayTransformer extends BaseDateTimeTransformer
     private $pad;
 
     private $fields;
+    private $referenceDate;
 
     /**
      * @param string $inputTimezone  The input timezone
@@ -31,7 +32,7 @@ class DateTimeToArrayTransformer extends BaseDateTimeTransformer
      * @param array  $fields         The date fields
      * @param bool   $pad            Whether to use padding
      */
-    public function __construct(string $inputTimezone = null, string $outputTimezone = null, array $fields = null, bool $pad = false)
+    public function __construct(string $inputTimezone = null, string $outputTimezone = null, array $fields = null, bool $pad = false, \DateTimeInterface $referenceDate = null)
     {
         parent::__construct($inputTimezone, $outputTimezone);
 
@@ -41,6 +42,7 @@ class DateTimeToArrayTransformer extends BaseDateTimeTransformer
 
         $this->fields = $fields;
         $this->pad = $pad;
+        $this->referenceDate = $referenceDate ?: new \DateTimeImmutable('1970-01-01 00:00:00');
     }
 
     /**
@@ -103,7 +105,7 @@ class DateTimeToArrayTransformer extends BaseDateTimeTransformer
      *
      * @param array $value Localized date
      *
-     * @return \DateTime Normalized date
+     * @return \DateTime|null Normalized date
      *
      * @throws TransformationFailedException If the given value is not an array,
      *                                       if the value could not be transformed
@@ -111,7 +113,7 @@ class DateTimeToArrayTransformer extends BaseDateTimeTransformer
     public function reverseTransform($value)
     {
         if (null === $value) {
-            return;
+            return null;
         }
 
         if (!\is_array($value)) {
@@ -119,7 +121,7 @@ class DateTimeToArrayTransformer extends BaseDateTimeTransformer
         }
 
         if ('' === implode('', $value)) {
-            return;
+            return null;
         }
 
         $emptyFields = [];
@@ -165,12 +167,12 @@ class DateTimeToArrayTransformer extends BaseDateTimeTransformer
         try {
             $dateTime = new \DateTime(sprintf(
                 '%s-%s-%s %s:%s:%s',
-                empty($value['year']) ? '1970' : $value['year'],
-                empty($value['month']) ? '1' : $value['month'],
-                empty($value['day']) ? '1' : $value['day'],
-                empty($value['hour']) ? '0' : $value['hour'],
-                empty($value['minute']) ? '0' : $value['minute'],
-                empty($value['second']) ? '0' : $value['second']
+                empty($value['year']) ? $this->referenceDate->format('Y') : $value['year'],
+                empty($value['month']) ? $this->referenceDate->format('m') : $value['month'],
+                empty($value['day']) ? $this->referenceDate->format('d') : $value['day'],
+                empty($value['hour']) ? $this->referenceDate->format('H') : $value['hour'],
+                empty($value['minute']) ? $this->referenceDate->format('i') : $value['minute'],
+                empty($value['second']) ? $this->referenceDate->format('s') : $value['second']
                 ),
                 new \DateTimeZone($this->outputTimezone)
             );

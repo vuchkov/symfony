@@ -20,6 +20,9 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class ResponseTest extends ResponseTestCase
 {
+    /**
+     * @group legacy
+     */
     public function testCreate()
     {
         $response = Response::create('foo', 301, ['Foo' => 'bar']);
@@ -370,6 +373,12 @@ class ResponseTest extends ResponseTestCase
         $this->assertNull($response->headers->get('Expires'), '->expire() removes the Expires header when the response is fresh');
     }
 
+    public function testNullExpireHeader()
+    {
+        $response = new Response(null, 200, ['Expires' => null]);
+        $this->assertNull($response->getExpires());
+    }
+
     public function testGetTtl()
     {
         $response = new Response();
@@ -504,6 +513,7 @@ class ResponseTest extends ResponseTestCase
         $response = new Response('foo');
         $request = Request::create('/');
         $request->setRequestFormat('json');
+        $request->headers->remove('accept');
 
         $response->prepare($request);
 
@@ -532,7 +542,6 @@ class ResponseTest extends ResponseTestCase
         $response->setStatusCode(101);
         $response->prepare($request);
         $this->assertEquals('', $response->getContent());
-        $this->assertFalse($response->headers->has('Content-Type'));
         $this->assertFalse($response->headers->has('Content-Type'));
 
         $response->setContent('content');
@@ -601,7 +610,7 @@ class ResponseTest extends ResponseTestCase
             $this->fail('->setCache() throws an InvalidArgumentException if an option is not supported');
         } catch (\Exception $e) {
             $this->assertInstanceOf('InvalidArgumentException', $e, '->setCache() throws an InvalidArgumentException if an option is not supported');
-            $this->assertContains('"wrong option"', $e->getMessage());
+            $this->assertStringContainsString('"wrong option"', $e->getMessage());
         }
 
         $options = ['etag' => '"whatever"'];
@@ -654,7 +663,7 @@ class ResponseTest extends ResponseTestCase
         ob_start();
         $response->sendContent();
         $string = ob_get_clean();
-        $this->assertContains('test response rendering', $string);
+        $this->assertStringContainsString('test response rendering', $string);
     }
 
     public function testSetPublic()
@@ -900,16 +909,6 @@ class ResponseTest extends ResponseTestCase
         $this->assertEquals((string) $content, $response->getContent());
     }
 
-    /**
-     * @expectedException \UnexpectedValueException
-     * @dataProvider invalidContentProvider
-     */
-    public function testSetContentInvalid($content)
-    {
-        $response = new Response();
-        $response->setContent($content);
-    }
-
     public function testSettersAreChainable()
     {
         $response = new Response();
@@ -951,15 +950,6 @@ class ResponseTest extends ResponseTestCase
         ];
     }
 
-    public function invalidContentProvider()
-    {
-        return [
-            'obj' => [new \stdClass()],
-            'array' => [[]],
-            'bool' => [true, '1'],
-        ];
-    }
-
     protected function createDateTimeOneHourAgo()
     {
         return $this->createDateTimeNow()->sub(new \DateInterval('PT1H'));
@@ -990,11 +980,11 @@ class ResponseTest extends ResponseTestCase
     }
 
     /**
-     * @see       http://github.com/zendframework/zend-diactoros for the canonical source repository
+     * @see http://github.com/zendframework/zend-diactoros for the canonical source repository
      *
-     * @author    Fábio Pacheco
+     * @author Fábio Pacheco
      * @copyright Copyright (c) 2015-2016 Zend Technologies USA Inc. (http://www.zend.com)
-     * @license   https://github.com/zendframework/zend-diactoros/blob/master/LICENSE.md New BSD License
+     * @license https://github.com/zendframework/zend-diactoros/blob/master/LICENSE.md New BSD License
      */
     public function ianaCodesReasonPhrasesProvider()
     {
@@ -1054,7 +1044,7 @@ class ResponseTest extends ResponseTestCase
 
 class StringableObject
 {
-    public function __toString()
+    public function __toString(): string
     {
         return 'Foo';
     }

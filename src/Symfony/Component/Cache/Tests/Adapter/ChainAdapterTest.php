@@ -11,6 +11,7 @@
 
 namespace Symfony\Component\Cache\Tests\Adapter;
 
+use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Component\Cache\Adapter\AdapterInterface;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\Cache\Adapter\ChainAdapter;
@@ -24,30 +25,26 @@ use Symfony\Component\Cache\Tests\Fixtures\ExternalAdapter;
  */
 class ChainAdapterTest extends AdapterTestCase
 {
-    public function createCachePool($defaultLifetime = 0, $testMethod = null)
+    public function createCachePool(int $defaultLifetime = 0, string $testMethod = null): CacheItemPoolInterface
     {
         if ('testGetMetadata' === $testMethod) {
-            return new ChainAdapter([new FilesystemAdapter('', $defaultLifetime)], $defaultLifetime);
+            return new ChainAdapter([new FilesystemAdapter('a', $defaultLifetime), new FilesystemAdapter('b', $defaultLifetime)], $defaultLifetime);
         }
 
         return new ChainAdapter([new ArrayAdapter($defaultLifetime), new ExternalAdapter(), new FilesystemAdapter('', $defaultLifetime)], $defaultLifetime);
     }
 
-    /**
-     * @expectedException \Symfony\Component\Cache\Exception\InvalidArgumentException
-     * @expectedExceptionMessage At least one adapter must be specified.
-     */
     public function testEmptyAdaptersException()
     {
+        $this->expectException('Symfony\Component\Cache\Exception\InvalidArgumentException');
+        $this->expectExceptionMessage('At least one adapter must be specified.');
         new ChainAdapter([]);
     }
 
-    /**
-     * @expectedException \Symfony\Component\Cache\Exception\InvalidArgumentException
-     * @expectedExceptionMessage The class "stdClass" does not implement
-     */
     public function testInvalidAdapterException()
     {
+        $this->expectException('Symfony\Component\Cache\Exception\InvalidArgumentException');
+        $this->expectExceptionMessage('The class "stdClass" does not implement');
         new ChainAdapter([new \stdClass()]);
     }
 
@@ -72,14 +69,9 @@ class ChainAdapterTest extends AdapterTestCase
         $this->assertFalse($cache->prune());
     }
 
-    /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|PruneableCacheInterface
-     */
-    private function getPruneableMock()
+    private function getPruneableMock(): AdapterInterface
     {
-        $pruneable = $this
-            ->getMockBuilder(PruneableCacheInterface::class)
-            ->getMock();
+        $pruneable = $this->createMock([PruneableInterface::class, AdapterInterface::class]);
 
         $pruneable
             ->expects($this->atLeastOnce())
@@ -89,14 +81,9 @@ class ChainAdapterTest extends AdapterTestCase
         return $pruneable;
     }
 
-    /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|PruneableCacheInterface
-     */
-    private function getFailingPruneableMock()
+    private function getFailingPruneableMock(): AdapterInterface
     {
-        $pruneable = $this
-            ->getMockBuilder(PruneableCacheInterface::class)
-            ->getMock();
+        $pruneable = $this->createMock([PruneableInterface::class, AdapterInterface::class]);
 
         $pruneable
             ->expects($this->atLeastOnce())
@@ -106,17 +93,8 @@ class ChainAdapterTest extends AdapterTestCase
         return $pruneable;
     }
 
-    /**
-     * @return \PHPUnit_Framework_MockObject_MockObject|AdapterInterface
-     */
-    private function getNonPruneableMock()
+    private function getNonPruneableMock(): AdapterInterface
     {
-        return $this
-            ->getMockBuilder(AdapterInterface::class)
-            ->getMock();
+        return $this->createMock(AdapterInterface::class);
     }
-}
-
-interface PruneableCacheInterface extends PruneableInterface, AdapterInterface
-{
 }

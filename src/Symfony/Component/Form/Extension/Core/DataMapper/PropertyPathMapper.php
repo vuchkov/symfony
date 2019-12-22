@@ -33,7 +33,7 @@ class PropertyPathMapper implements DataMapperInterface
     /**
      * {@inheritdoc}
      */
-    public function mapDataToForms($data, $forms)
+    public function mapDataToForms($data, iterable $forms)
     {
         $empty = null === $data || [] === $data;
 
@@ -48,7 +48,7 @@ class PropertyPathMapper implements DataMapperInterface
             if (!$empty && null !== $propertyPath && $config->getMapped()) {
                 $form->setData($this->propertyAccessor->getValue($data, $propertyPath));
             } else {
-                $form->setData($form->getConfig()->getData());
+                $form->setData($config->getData());
             }
         }
     }
@@ -56,7 +56,7 @@ class PropertyPathMapper implements DataMapperInterface
     /**
      * {@inheritdoc}
      */
-    public function mapFormsToData($forms, &$data)
+    public function mapFormsToData(iterable $forms, &$data)
     {
         if (null === $data) {
             return;

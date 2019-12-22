@@ -48,16 +48,12 @@ class ProxyDumper implements DumperInterface
     /**
      * {@inheritdoc}
      */
-    public function getProxyFactoryCode(Definition $definition, $id, $factoryCode = null): string
+    public function getProxyFactoryCode(Definition $definition, string $id, string $factoryCode): string
     {
         $instantiation = 'return';
 
         if ($definition->isShared()) {
             $instantiation .= sprintf(' $this->%s[%s] =', $definition->isPublic() && !$definition->isPrivate() ? 'services' : 'privates', var_export($id, true));
-        }
-
-        if (null === $factoryCode) {
-            throw new \InvalidArgumentException(sprintf('Missing factory code to construct the service "%s".', $id));
         }
 
         $proxyClass = $this->getProxyClassName($definition);
@@ -85,6 +81,7 @@ EOF;
     public function getProxyCode(Definition $definition): string
     {
         $code = $this->classGenerator->generate($this->generateProxyClass($definition));
+        $code = preg_replace('/^(class [^ ]++ extends )([^\\\\])/', '$1\\\\$2', $code);
 
         if (version_compare(self::getProxyManagerVersion(), '2.2', '<')) {
             $code = preg_replace(
@@ -92,6 +89,10 @@ EOF;
                 '${1}'.$this->getIdentifierSuffix($definition),
                 $code
             );
+        }
+
+        if (version_compare(self::getProxyManagerVersion(), '2.5', '<')) {
+            $code = preg_replace('/ \\\\Closure::bind\(function ((?:& )?\(\$instance(?:, \$value)?\))/', ' \Closure::bind(static function \1', $code);
         }
 
         return $code;

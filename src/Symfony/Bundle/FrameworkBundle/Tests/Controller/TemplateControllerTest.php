@@ -30,12 +30,10 @@ class TemplateControllerTest extends TestCase
         $this->assertEquals('bar', $controller('mytemplate')->getContent());
     }
 
-    /**
-     * @expectedException \LogicException
-     * @expectedExceptionMessage You can not use the TemplateController if the Twig Bundle is not available.
-     */
     public function testNoTwig()
     {
+        $this->expectException('LogicException');
+        $this->expectExceptionMessage('You can not use the TemplateController if the Twig Bundle is not available.');
         $controller = new TemplateController();
 
         $controller->templateAction('mytemplate')->getContent();

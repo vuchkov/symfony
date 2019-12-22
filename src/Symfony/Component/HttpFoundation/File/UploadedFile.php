@@ -164,14 +164,11 @@ class UploadedFile extends File
     /**
      * Moves the file to a new location.
      *
-     * @param string $directory The destination folder
-     * @param string $name      The new file name
-     *
      * @return File A File object representing the new file
      *
      * @throws FileException if, for any reason, the file could not have been moved
      */
-    public function move($directory, $name = null)
+    public function move(string $directory, string $name = null)
     {
         if ($this->isValid()) {
             if ($this->test) {
@@ -219,13 +216,24 @@ class UploadedFile extends File
      */
     public static function getMaxFilesize()
     {
-        $iniMax = strtolower(ini_get('upload_max_filesize'));
+        $sizePostMax = self::parseFilesize(ini_get('post_max_size'));
+        $sizeUploadMax = self::parseFilesize(ini_get('upload_max_filesize'));
 
-        if ('' === $iniMax) {
-            return PHP_INT_MAX;
+        return min($sizePostMax ?: PHP_INT_MAX, $sizeUploadMax ?: PHP_INT_MAX);
+    }
+
+    /**
+     * Returns the given size from an ini value in bytes.
+     */
+    private static function parseFilesize($size): int
+    {
+        if ('' === $size) {
+            return 0;
         }
 
-        $max = ltrim($iniMax, '+');
+        $size = strtolower($size);
+
+        $max = ltrim($size, '+');
         if (0 === strpos($max, '0x')) {
             $max = \intval($max, 16);
         } elseif (0 === strpos($max, '0')) {
@@ -234,7 +242,7 @@ class UploadedFile extends File
             $max = (int) $max;
         }
 
-        switch (substr($iniMax, -1)) {
+        switch (substr($size, -1)) {
             case 't': $max *= 1024;
             // no break
             case 'g': $max *= 1024;

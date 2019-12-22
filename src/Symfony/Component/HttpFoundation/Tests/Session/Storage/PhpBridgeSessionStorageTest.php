@@ -29,7 +29,7 @@ class PhpBridgeSessionStorageTest extends TestCase
 {
     private $savePath;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         $this->iniSet('session.save_handler', 'files');
         $this->iniSet('session.save_path', $this->savePath = sys_get_temp_dir().'/sftest');
@@ -38,7 +38,7 @@ class PhpBridgeSessionStorageTest extends TestCase
         }
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         session_write_close();
         array_map('unlink', glob($this->savePath.'/*'));
@@ -49,10 +49,7 @@ class PhpBridgeSessionStorageTest extends TestCase
         $this->savePath = null;
     }
 
-    /**
-     * @return PhpBridgeSessionStorage
-     */
-    protected function getStorage()
+    protected function getStorage(): PhpBridgeSessionStorage
     {
         $storage = new PhpBridgeSessionStorage();
         $storage->registerBag(new AttributeBag());

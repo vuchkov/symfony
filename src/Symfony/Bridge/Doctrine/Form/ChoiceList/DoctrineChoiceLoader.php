@@ -11,7 +11,7 @@
 
 namespace Symfony\Bridge\Doctrine\Form\ChoiceList;
 
-use Doctrine\Common\Persistence\ObjectManager;
+use Doctrine\Persistence\ObjectManager;
 use Symfony\Component\Form\ChoiceList\ArrayChoiceList;
 use Symfony\Component\Form\ChoiceList\ChoiceListInterface;
 use Symfony\Component\Form\ChoiceList\Loader\ChoiceLoaderInterface;
@@ -40,10 +40,7 @@ class DoctrineChoiceLoader implements ChoiceLoaderInterface
      * passed which optimizes the object loading for one of the Doctrine
      * mapper implementations.
      *
-     * @param ObjectManager              $manager      The object manager
-     * @param string                     $class        The class name of the loaded objects
-     * @param IdReader|null              $idReader     The reader for the object IDs
-     * @param EntityLoaderInterface|null $objectLoader The objects loader
+     * @param string $class The class name of the loaded objects
      */
     public function __construct(ObjectManager $manager, string $class, IdReader $idReader = null, EntityLoaderInterface $objectLoader = null)
     {
@@ -62,7 +59,7 @@ class DoctrineChoiceLoader implements ChoiceLoaderInterface
     /**
      * {@inheritdoc}
      */
-    public function loadChoiceList($value = null)
+    public function loadChoiceList(callable $value = null)
     {
         if ($this->choiceList) {
             return $this->choiceList;
@@ -78,7 +75,7 @@ class DoctrineChoiceLoader implements ChoiceLoaderInterface
     /**
      * {@inheritdoc}
      */
-    public function loadValuesForChoices(array $choices, $value = null)
+    public function loadValuesForChoices(array $choices, callable $value = null)
     {
         // Performance optimization
         if (empty($choices)) {
@@ -90,7 +87,7 @@ class DoctrineChoiceLoader implements ChoiceLoaderInterface
         $optimize = $this->idReader && (null === $value || \is_array($value) && $value[0] === $this->idReader);
 
         // Attention: This optimization does not check choices for existence
-        if ($optimize && !$this->choiceList && $this->idReader->isSingleId()) {
+        if ($optimize && !$this->choiceList) {
             $values = [];
 
             // Maintain order and indices of the given objects
@@ -110,7 +107,7 @@ class DoctrineChoiceLoader implements ChoiceLoaderInterface
     /**
      * {@inheritdoc}
      */
-    public function loadChoicesForValues(array $values, $value = null)
+    public function loadChoicesForValues(array $values, callable $value = null)
     {
         // Performance optimization
         // Also prevents the generation of "WHERE id IN ()" queries through the
@@ -126,7 +123,7 @@ class DoctrineChoiceLoader implements ChoiceLoaderInterface
         // a single-field identifier
         $optimize = $this->idReader && (null === $value || \is_array($value) && $this->idReader === $value[0]);
 
-        if ($optimize && !$this->choiceList && $this->objectLoader && $this->idReader->isSingleId()) {
+        if ($optimize && !$this->choiceList && $this->objectLoader) {
             $unorderedObjects = $this->objectLoader->getEntitiesByIds($this->idReader->getIdField(), $values);
             $objectsById = [];
             $objects = [];

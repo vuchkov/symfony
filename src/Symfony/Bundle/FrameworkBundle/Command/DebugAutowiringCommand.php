@@ -69,7 +69,7 @@ EOF
     /**
      * {@inheritdoc}
      */
-    protected function execute(InputInterface $input, OutputInterface $output)
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
         $errorIo = $io->getErrorStyle();
@@ -145,6 +145,8 @@ EOF
         }
 
         $io->newLine();
+
+        return 0;
     }
 
     private function getFileLink(string $class): string

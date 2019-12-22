@@ -11,12 +11,13 @@
 
 namespace Symfony\Bridge\Doctrine\Tests\Messenger;
 
-use Doctrine\Common\Persistence\ManagerRegistry;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bridge\Doctrine\Messenger\DoctrinePingConnectionMiddleware;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\UnrecoverableMessageHandlingException;
+use Symfony\Component\Messenger\Stamp\ConsumedByWorkerStamp;
 use Symfony\Component\Messenger\Test\Middleware\MiddlewareTestCase;
 
 class DoctrinePingConnectionMiddlewareTest extends MiddlewareTestCase
@@ -27,7 +28,7 @@ class DoctrinePingConnectionMiddlewareTest extends MiddlewareTestCase
     private $middleware;
     private $entityManagerName = 'default';
 
-    protected function setUp()
+    protected function setUp(): void
     {
         $this->connection = $this->createMock(Connection::class);
 
@@ -56,7 +57,10 @@ class DoctrinePingConnectionMiddlewareTest extends MiddlewareTestCase
             ->method('connect')
         ;
 
-        $this->middleware->handle(new Envelope(new \stdClass()), $this->getStackMock());
+        $envelope = new Envelope(new \stdClass(), [
+            new ConsumedByWorkerStamp(),
+        ]);
+        $this->middleware->handle($envelope, $this->getStackMock());
     }
 
     public function testMiddlewarePingResetEntityManager()
@@ -70,7 +74,10 @@ class DoctrinePingConnectionMiddlewareTest extends MiddlewareTestCase
             ->with($this->entityManagerName)
         ;
 
-        $this->middleware->handle(new Envelope(new \stdClass()), $this->getStackMock());
+        $envelope = new Envelope(new \stdClass(), [
+            new ConsumedByWorkerStamp(),
+        ]);
+        $this->middleware->handle($envelope, $this->getStackMock());
     }
 
     public function testInvalidEntityManagerThrowsException()
@@ -86,5 +93,22 @@ class DoctrinePingConnectionMiddlewareTest extends MiddlewareTestCase
         $this->expectException(UnrecoverableMessageHandlingException::class);
 
         $middleware->handle(new Envelope(new \stdClass()), $this->getStackMock(false));
+    }
+
+    public function testMiddlewareNoPingInNonWorkerContext()
+    {
+        $this->connection->expects($this->never())
+            ->method('ping')
+            ->willReturn(false);
+
+        $this->connection->expects($this->never())
+            ->method('close')
+        ;
+        $this->connection->expects($this->never())
+            ->method('connect')
+        ;
+
+        $envelope = new Envelope(new \stdClass());
+        $this->middleware->handle($envelope, $this->getStackMock());
     }
 }

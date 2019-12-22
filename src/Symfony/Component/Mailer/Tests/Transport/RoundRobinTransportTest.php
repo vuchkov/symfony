@@ -28,6 +28,16 @@ class RoundRobinTransportTest extends TestCase
         new RoundRobinTransport([]);
     }
 
+    public function testToString()
+    {
+        $t1 = $this->createMock(TransportInterface::class);
+        $t1->expects($this->once())->method('__toString')->willReturn('t1://local');
+        $t2 = $this->createMock(TransportInterface::class);
+        $t2->expects($this->once())->method('__toString')->willReturn('t2://local');
+        $t = new RoundRobinTransport([$t1, $t2]);
+        $this->assertEquals('roundrobin(t1://local t2://local)', (string) $t);
+    }
+
     public function testSendAlternate()
     {
         $t1 = $this->createMock(TransportInterface::class);

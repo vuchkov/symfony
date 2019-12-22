@@ -46,12 +46,12 @@ final class MethodMarkingStore implements MarkingStoreInterface
     /**
      * {@inheritdoc}
      */
-    public function getMarking($subject): Marking
+    public function getMarking(object $subject): Marking
     {
         $method = 'get'.ucfirst($this->property);
 
         if (!method_exists($subject, $method)) {
-            throw new LogicException(sprintf('The method "%s::%s()" does not exists.', \get_class($subject), $method));
+            throw new LogicException(sprintf('The method "%s::%s()" does not exist.', \get_class($subject), $method));
         }
 
         $marking = $subject->{$method}();
@@ -61,7 +61,7 @@ final class MethodMarkingStore implements MarkingStoreInterface
         }
 
         if ($this->singleState) {
-            $marking = [$marking => 1];
+            $marking = [(string) $marking => 1];
         }
 
         return new Marking($marking);
@@ -70,7 +70,7 @@ final class MethodMarkingStore implements MarkingStoreInterface
     /**
      * {@inheritdoc}
      */
-    public function setMarking($subject, Marking $marking, array $context = [])
+    public function setMarking(object $subject, Marking $marking, array $context = [])
     {
         $marking = $marking->getPlaces();
 
@@ -81,7 +81,7 @@ final class MethodMarkingStore implements MarkingStoreInterface
         $method = 'set'.ucfirst($this->property);
 
         if (!method_exists($subject, $method)) {
-            throw new LogicException(sprintf('The method "%s::%s()" does not exists.', \get_class($subject), $method));
+            throw new LogicException(sprintf('The method "%s::%s()" does not exist.', \get_class($subject), $method));
         }
 
         $subject->{$method}($marking, $context);

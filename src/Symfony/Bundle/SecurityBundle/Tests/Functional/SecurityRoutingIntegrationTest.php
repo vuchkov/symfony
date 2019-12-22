@@ -11,7 +11,7 @@
 
 namespace Symfony\Bundle\SecurityBundle\Tests\Functional;
 
-class SecurityRoutingIntegrationTest extends WebTestCase
+class SecurityRoutingIntegrationTest extends AbstractWebTestCase
 {
     /**
      * @dataProvider getConfigs
@@ -58,6 +58,9 @@ class SecurityRoutingIntegrationTest extends WebTestCase
     public function testSecurityConfigurationForSingleIPAddress($config)
     {
         $allowedClient = $this->createClient(['test_case' => 'StandardFormLogin', 'root_config' => $config], ['REMOTE_ADDR' => '10.10.10.10']);
+
+        $this->ensureKernelShutdown();
+
         $barredClient = $this->createClient(['test_case' => 'StandardFormLogin', 'root_config' => $config], ['REMOTE_ADDR' => '10.10.20.10']);
 
         $this->assertAllowed($allowedClient, '/secured-by-one-ip');
@@ -70,8 +73,17 @@ class SecurityRoutingIntegrationTest extends WebTestCase
     public function testSecurityConfigurationForMultipleIPAddresses($config)
     {
         $allowedClientA = $this->createClient(['test_case' => 'StandardFormLogin', 'root_config' => $config], ['REMOTE_ADDR' => '1.1.1.1']);
+
+        $this->ensureKernelShutdown();
+
         $allowedClientB = $this->createClient(['test_case' => 'StandardFormLogin', 'root_config' => $config], ['REMOTE_ADDR' => '2.2.2.2']);
+
+        $this->ensureKernelShutdown();
+
         $allowedClientC = $this->createClient(['test_case' => 'StandardFormLogin', 'root_config' => $config], ['REMOTE_ADDR' => '203.0.113.0']);
+
+        $this->ensureKernelShutdown();
+
         $barredClient = $this->createClient(['test_case' => 'StandardFormLogin', 'root_config' => $config], ['REMOTE_ADDR' => '192.168.1.1']);
 
         $this->assertAllowed($allowedClientA, '/secured-by-two-ips');
@@ -91,9 +103,11 @@ class SecurityRoutingIntegrationTest extends WebTestCase
     {
         $allowedClient = $this->createClient(['test_case' => 'StandardFormLogin', 'root_config' => $config], ['HTTP_USER_AGENT' => 'Firefox 1.0']);
         $this->assertAllowed($allowedClient, '/protected-via-expression');
+        $this->ensureKernelShutdown();
 
         $barredClient = $this->createClient(['test_case' => 'StandardFormLogin', 'root_config' => $config], []);
         $this->assertRestricted($barredClient, '/protected-via-expression');
+        $this->ensureKernelShutdown();
 
         $allowedClient = $this->createClient(['test_case' => 'StandardFormLogin', 'root_config' => $config], []);
 
@@ -113,6 +127,16 @@ class SecurityRoutingIntegrationTest extends WebTestCase
 
         $client = $this->createClient(['test_case' => 'StandardFormLogin', 'root_config' => 'invalid_ip_access_control.yml']);
         $client->request('GET', '/unprotected_resource');
+    }
+
+    public function testPublicHomepage()
+    {
+        $client = $this->createClient(['test_case' => 'StandardFormLogin', 'root_config' => 'config.yml']);
+        $client->request('GET', '/en/');
+
+        $this->assertEquals(200, $client->getResponse()->getStatusCode(), (string) $client->getResponse());
+        $this->assertTrue($client->getResponse()->headers->getCacheControlDirective('public'));
+        $this->assertSame(0, self::$container->get('session')->getUsageIndex());
     }
 
     private function assertAllowed($client, $path)

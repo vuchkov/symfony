@@ -24,24 +24,38 @@ class LengthValidatorTest extends ConstraintValidatorTestCase
 
     public function testNullIsValid()
     {
-        $this->validator->validate(null, new Length(6));
+        $this->validator->validate(null, new Length(['value' => 6]));
 
         $this->assertNoViolation();
     }
 
-    public function testEmptyStringIsValid()
+    public function testAllowEmptyString()
     {
-        $this->validator->validate('', new Length(6));
+        $this->validator->validate('', new Length(['value' => 6, 'allowEmptyString' => true]));
 
         $this->assertNoViolation();
     }
 
-    /**
-     * @expectedException \Symfony\Component\Validator\Exception\UnexpectedValueException
-     */
+    public function testEmptyStringIsInvalid()
+    {
+        $this->validator->validate('', new Length([
+            'value' => $limit = 6,
+            'exactMessage' => 'myMessage',
+        ]));
+
+        $this->buildViolation('myMessage')
+            ->setParameter('{{ value }}', '""')
+            ->setParameter('{{ limit }}', $limit)
+            ->setInvalidValue('')
+            ->setPlural($limit)
+            ->setCode(Length::TOO_SHORT_ERROR)
+            ->assertRaised();
+    }
+
     public function testExpectsStringCompatibleType()
     {
-        $this->validator->validate(new \stdClass(), new Length(5));
+        $this->expectException('Symfony\Component\Validator\Exception\UnexpectedValueException');
+        $this->validator->validate(new \stdClass(), new Length(['value' => 5]));
     }
 
     public function getThreeOrLessCharacters()

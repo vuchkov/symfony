@@ -11,7 +11,7 @@
 
 namespace Symfony\Bridge\Doctrine;
 
-use Doctrine\Common\Persistence\AbstractManagerRegistry;
+use Doctrine\Persistence\AbstractManagerRegistry;
 use ProxyManager\Proxy\LazyLoadingInterface;
 use Symfony\Component\DependencyInjection\Container;
 
@@ -29,6 +29,8 @@ abstract class ManagerRegistry extends AbstractManagerRegistry
 
     /**
      * {@inheritdoc}
+     *
+     * @return object
      */
     protected function getService($name)
     {
@@ -37,6 +39,8 @@ abstract class ManagerRegistry extends AbstractManagerRegistry
 
     /**
      * {@inheritdoc}
+     *
+     * @return void
      */
     protected function resetService($name)
     {
@@ -50,17 +54,13 @@ abstract class ManagerRegistry extends AbstractManagerRegistry
         }
         $manager->setProxyInitializer(\Closure::bind(
             function (&$wrappedInstance, LazyLoadingInterface $manager) use ($name) {
-                if (isset($this->normalizedIds[$normalizedId = strtolower($name)])) { // BC with DI v3.4
-                    $name = $this->normalizedIds[$normalizedId];
-                }
                 if (isset($this->aliases[$name])) {
                     $name = $this->aliases[$name];
                 }
                 if (isset($this->fileMap[$name])) {
                     $wrappedInstance = $this->load($this->fileMap[$name]);
                 } else {
-                    $method = $this->methodMap[$name] ?? 'get'.strtr($name, $this->underscoreMap).'Service'; // BC with DI v3.4
-                    $wrappedInstance = $this->{$method}(false);
+                    $wrappedInstance = $this->{$this->methodMap[$name]}(false);
                 }
 
                 $manager->setProxyInitializer(null);

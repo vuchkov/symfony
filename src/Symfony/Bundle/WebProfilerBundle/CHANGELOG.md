@@ -1,6 +1,24 @@
 CHANGELOG
 =========
 
+5.0.0
+-----
+
+ * removed the `ExceptionController`, use `ExceptionPanelController` instead
+ * removed the `TemplateManager::templateExists()` method
+
+4.4.0
+-----
+
+ * added support for the Mailer component
+ * added support for the HttpClient component
+ * added button to clear the ajax request tab
+ * deprecated the `ExceptionController::templateExists()` method
+ * deprecated the `TemplateManager::templateExists()` method
+ * deprecated the `ExceptionController` in favor of `ExceptionPanelController`
+ * marked all classes of the WebProfilerBundle as internal
+ * added a section with the stamps of a message after it is dispatched in the Messenger panel
+
 4.3.0
 -----
 

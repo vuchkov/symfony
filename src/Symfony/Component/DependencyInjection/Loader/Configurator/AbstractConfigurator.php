@@ -22,10 +22,15 @@ abstract class AbstractConfigurator
 {
     const FACTORY = 'unknown';
 
+    /**
+     * @var callable(mixed $value, bool $allowService)|null
+     */
+    public static $valuePreProcessor;
+
     /** @internal */
     protected $definition;
 
-    public function __call($method, $args)
+    public function __call(string $method, array $args)
     {
         if (method_exists($this, 'set'.$method)) {
             return $this->{'set'.$method}(...$args);
@@ -49,7 +54,11 @@ abstract class AbstractConfigurator
                 $value[$k] = static::processValue($v, $allowServices);
             }
 
-            return $value;
+            return self::$valuePreProcessor ? (self::$valuePreProcessor)($value, $allowServices) : $value;
+        }
+
+        if (self::$valuePreProcessor) {
+            $value = (self::$valuePreProcessor)($value, $allowServices);
         }
 
         if ($value instanceof ReferenceConfigurator) {

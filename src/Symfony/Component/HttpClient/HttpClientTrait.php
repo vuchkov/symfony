@@ -19,8 +19,6 @@ use Symfony\Component\HttpClient\Exception\InvalidArgumentException;
  * All methods are static to prevent implementers from creating memory leaks via circular references.
  *
  * @author Nicolas Grekas <p@tchwork.com>
- *
- * @experimental in 4.3
  */
 trait HttpClientTrait
 {
@@ -44,13 +42,46 @@ trait HttpClientTrait
 
         $options = self::mergeDefaultOptions($options, $defaultOptions, $allowExtraOptions);
 
+        $buffer = $options['buffer'] ?? true;
+
+        if ($buffer instanceof \Closure) {
+            $options['buffer'] = static function (array $headers) use ($buffer) {
+                if (!\is_bool($buffer = $buffer($headers))) {
+                    if (!\is_array($bufferInfo = @stream_get_meta_data($buffer))) {
+                        throw new \LogicException(sprintf('The closure passed as option "buffer" must return bool or stream resource, got %s.', \is_resource($buffer) ? get_resource_type($buffer).' resource' : \gettype($buffer)));
+                    }
+
+                    if (false === strpbrk($bufferInfo['mode'], 'acew+')) {
+                        throw new \LogicException(sprintf('The stream returned by the closure passed as option "buffer" must be writeable, got mode "%s".', $bufferInfo['mode']));
+                    }
+                }
+
+                return $buffer;
+            };
+        } elseif (!\is_bool($buffer)) {
+            if (!\is_array($bufferInfo = @stream_get_meta_data($buffer))) {
+                throw new InvalidArgumentException(sprintf('Option "buffer" must be bool, stream resource or Closure, %s given.', \is_resource($buffer) ? get_resource_type($buffer).' resource' : \gettype($buffer)));
+            }
+
+            if (false === strpbrk($bufferInfo['mode'], 'acew+')) {
+                throw new InvalidArgumentException(sprintf('The stream in option "buffer" must be writeable, mode "%s" given.', $bufferInfo['mode']));
+            }
+        }
+
         if (isset($options['json'])) {
             if (isset($options['body']) && '' !== $options['body']) {
                 throw new InvalidArgumentException('Define either the "json" or the "body" option, setting both is not supported.');
             }
             $options['body'] = self::jsonEncode($options['json']);
             unset($options['json']);
-            $options['headers']['content-type'] = $options['headers']['content-type'] ?? ['application/json'];
+
+            if (!isset($options['normalized_headers']['content-type'])) {
+                $options['normalized_headers']['content-type'] = [$options['headers'][] = 'Content-Type: application/json'];
+            }
+        }
+
+        if (!isset($options['normalized_headers']['accept'])) {
+            $options['normalized_headers']['accept'] = [$options['headers'][] = 'Accept: */*'];
         }
 
         if (isset($options['body'])) {
@@ -59,19 +90,6 @@ trait HttpClientTrait
 
         if (isset($options['peer_fingerprint'])) {
             $options['peer_fingerprint'] = self::normalizePeerFingerprint($options['peer_fingerprint']);
-        }
-
-        // Compute request headers
-        $requestHeaders = $headers = [];
-
-        foreach ($options['headers'] as $name => $values) {
-            foreach ($values as $value) {
-                $requestHeaders[] = $name.': '.$headers[$name][] = $value = (string) $value;
-
-                if (\strlen($value) !== strcspn($value, "\r\n\0")) {
-                    throw new InvalidArgumentException(sprintf('Invalid header value: CR/LF/NUL found in "%s".', $value));
-                }
-            }
         }
 
         // Validate on_progress
@@ -102,15 +120,14 @@ trait HttpClientTrait
 
         if (null !== $url) {
             // Merge auth with headers
-            if (($options['auth_basic'] ?? false) && !($headers['authorization'] ?? false)) {
-                $requestHeaders[] = 'authorization: '.$headers['authorization'][] = 'Basic '.base64_encode($options['auth_basic']);
+            if (($options['auth_basic'] ?? false) && !($options['normalized_headers']['authorization'] ?? false)) {
+                $options['normalized_headers']['authorization'] = [$options['headers'][] = 'Authorization: Basic '.base64_encode($options['auth_basic'])];
             }
             // Merge bearer with headers
-            if (($options['auth_bearer'] ?? false) && !($headers['authorization'] ?? false)) {
-                $requestHeaders[] = 'authorization: '.$headers['authorization'][] = 'Bearer '.$options['auth_bearer'];
+            if (($options['auth_bearer'] ?? false) && !($options['normalized_headers']['authorization'] ?? false)) {
+                $options['normalized_headers']['authorization'] = [$options['headers'][] = 'Authorization: Bearer '.$options['auth_bearer']];
             }
 
-            $options['request_headers'] = $requestHeaders;
             unset($options['auth_basic'], $options['auth_bearer']);
 
             // Parse base URI
@@ -124,9 +141,9 @@ trait HttpClientTrait
         }
 
         // Finalize normalization of options
-        $options['headers'] = $headers;
         $options['http_version'] = (string) ($options['http_version'] ?? '') ?: null;
         $options['timeout'] = (float) ($options['timeout'] ?? ini_get('default_socket_timeout'));
+        $options['max_duration'] = isset($options['max_duration']) ? (float) $options['max_duration'] : 0;
 
         return [$url, $options];
     }
@@ -136,31 +153,38 @@ trait HttpClientTrait
      */
     private static function mergeDefaultOptions(array $options, array $defaultOptions, bool $allowExtraOptions = false): array
     {
-        unset($options['request_headers'], $defaultOptions['request_headers']);
-
-        $options['headers'] = self::normalizeHeaders($options['headers'] ?? []);
+        $options['normalized_headers'] = self::normalizeHeaders($options['headers'] ?? []);
 
         if ($defaultOptions['headers'] ?? false) {
-            $options['headers'] += self::normalizeHeaders($defaultOptions['headers']);
+            $options['normalized_headers'] += self::normalizeHeaders($defaultOptions['headers']);
         }
 
-        if ($options['resolve'] ?? false) {
-            $options['resolve'] = array_change_key_case($options['resolve']);
+        $options['headers'] = array_merge(...array_values($options['normalized_headers']) ?: [[]]);
+
+        if ($resolve = $options['resolve'] ?? false) {
+            $options['resolve'] = [];
+            foreach ($resolve as $k => $v) {
+                $options['resolve'][substr(self::parseUrl('http://'.$k)['authority'], 2)] = (string) $v;
+            }
         }
 
         // Option "query" is never inherited from defaults
         $options['query'] = $options['query'] ?? [];
 
         foreach ($defaultOptions as $k => $v) {
-            $options[$k] = $options[$k] ?? $v;
+            if ('normalized_headers' !== $k && !isset($options[$k])) {
+                $options[$k] = $v;
+            }
         }
 
         if (isset($defaultOptions['extra'])) {
             $options['extra'] += $defaultOptions['extra'];
         }
 
-        if ($defaultOptions['resolve'] ?? false) {
-            $options['resolve'] += array_change_key_case($defaultOptions['resolve']);
+        if ($resolve = $defaultOptions['resolve'] ?? false) {
+            foreach ($resolve as $k => $v) {
+                $options['resolve'] += [substr(self::parseUrl('http://'.$k)['authority'], 2) => (string) $v];
+            }
         }
 
         if ($allowExtraOptions || !$defaultOptions) {
@@ -169,7 +193,7 @@ trait HttpClientTrait
 
         // Look for unsupported options
         foreach ($options as $name => $v) {
-            if (\array_key_exists($name, $defaultOptions)) {
+            if (\array_key_exists($name, $defaultOptions) || 'normalized_headers' === $name) {
                 continue;
             }
 
@@ -181,6 +205,10 @@ trait HttpClientTrait
                 }
             }
 
+            if ('auth_ntlm' === $name) {
+                throw new InvalidArgumentException(sprintf('Option "auth_ntlm" is not supported by %s, try using CurlHttpClient instead.', __CLASS__));
+            }
+
             throw new InvalidArgumentException(sprintf('Unsupported option "%s" passed to %s, did you mean "%s"?', $name, __CLASS__, implode('", "', $alternatives ?: array_keys($defaultOptions))));
         }
 
@@ -188,26 +216,42 @@ trait HttpClientTrait
     }
 
     /**
-     * Normalizes headers by putting their names as lowercased keys.
-     *
      * @return string[][]
+     *
+     * @throws InvalidArgumentException When an invalid header is found
      */
     private static function normalizeHeaders(array $headers): array
     {
         $normalizedHeaders = [];
 
         foreach ($headers as $name => $values) {
+            if (\is_object($values) && method_exists($values, '__toString')) {
+                $values = (string) $values;
+            }
+
             if (\is_int($name)) {
+                if (!\is_string($values)) {
+                    throw new InvalidArgumentException(sprintf('Invalid value for header "%s": expected string, %s given.', $name, \gettype($values)));
+                }
                 [$name, $values] = explode(':', $values, 2);
                 $values = [ltrim($values)];
             } elseif (!is_iterable($values)) {
+                if (\is_object($values)) {
+                    throw new InvalidArgumentException(sprintf('Invalid value for header "%s": expected string, %s given.', $name, \get_class($values)));
+                }
+
                 $values = (array) $values;
             }
 
-            $normalizedHeaders[$name = strtolower($name)] = [];
+            $lcName = strtolower($name);
+            $normalizedHeaders[$lcName] = [];
 
             foreach ($values as $value) {
-                $normalizedHeaders[$name][] = $value;
+                $normalizedHeaders[$lcName][] = $value = $name.': '.$value;
+
+                if (\strlen($value) !== strcspn($value, "\r\n\0")) {
+                    throw new InvalidArgumentException(sprintf('Invalid header: CR/LF/NUL found in "%s".', $value));
+                }
             }
         }
 
@@ -288,17 +332,13 @@ trait HttpClientTrait
     }
 
     /**
-     * @param array|\JsonSerializable $value
+     * @param mixed $value
      *
      * @throws InvalidArgumentException When the value cannot be json-encoded
      */
     private static function jsonEncode($value, int $flags = null, int $maxDepth = 512): string
     {
         $flags = $flags ?? (JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_PRESERVE_ZERO_FRACTION);
-
-        if (!\is_array($value) && !$value instanceof \JsonSerializable) {
-            throw new InvalidArgumentException(sprintf('Option "json" must be array or JsonSerializable, %s given.', \is_object($value) ? \get_class($value) : \gettype($value)));
-        }
 
         try {
             $value = json_encode($value, $flags | (\PHP_VERSION_ID >= 70300 ? \JSON_THROW_ON_ERROR : 0), $maxDepth);
@@ -499,5 +539,18 @@ trait HttpClientTrait
         }
 
         return implode('&', $replace ? array_replace($query, $queryArray) : ($query + $queryArray));
+    }
+
+    private static function shouldBuffer(array $headers): bool
+    {
+        if (null === $contentType = $headers['content-type'][0] ?? null) {
+            return false;
+        }
+
+        if (false !== $i = strpos($contentType, ';')) {
+            $contentType = substr($contentType, 0, $i);
+        }
+
+        return $contentType && preg_match('#^(?:text/|application/(?:.+\+)?(?:json|xml)$)#i', $contentType);
     }
 }

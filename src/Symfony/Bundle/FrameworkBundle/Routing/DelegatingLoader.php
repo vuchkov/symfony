@@ -40,7 +40,7 @@ class DelegatingLoader extends BaseDelegatingLoader
     /**
      * {@inheritdoc}
      */
-    public function load($resource, $type = null)
+    public function load($resource, string $type = null)
     {
         if ($this->loading) {
             // This can happen if a fatal error occurs in parent::load().
@@ -79,11 +79,6 @@ class DelegatingLoader extends BaseDelegatingLoader
 
             if (false !== strpos($controller, '::')) {
                 continue;
-            }
-
-            if (1 === substr_count($controller, ':')) {
-                $nonDeprecatedNotation = str_replace(':', '::', $controller);
-                // TODO deprecate this in 5.1
             }
 
             $route->setDefault('_controller', $controller);

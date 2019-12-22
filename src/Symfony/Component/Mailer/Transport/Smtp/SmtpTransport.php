@@ -12,11 +12,11 @@
 namespace Symfony\Component\Mailer\Transport\Smtp;
 
 use Psr\Log\LoggerInterface;
+use Symfony\Component\Mailer\Envelope;
 use Symfony\Component\Mailer\Exception\LogicException;
 use Symfony\Component\Mailer\Exception\TransportException;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Mailer\SentMessage;
-use Symfony\Component\Mailer\SmtpEnvelope;
 use Symfony\Component\Mailer\Transport\AbstractTransport;
 use Symfony\Component\Mailer\Transport\Smtp\Stream\AbstractStream;
 use Symfony\Component\Mailer\Transport\Smtp\Stream\SocketStream;
@@ -28,8 +28,6 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
  *
  * @author Fabien Potencier <fabien@symfony.com>
  * @author Chris Corbyn
- *
- * @experimental in 4.3
  */
 class SmtpTransport extends AbstractTransport
 {
@@ -104,17 +102,18 @@ class SmtpTransport extends AbstractTransport
         return $this->domain;
     }
 
-    public function send(RawMessage $message, SmtpEnvelope $envelope = null): ?SentMessage
+    public function send(RawMessage $message, Envelope $envelope = null): ?SentMessage
     {
-        $this->ping();
-        if (!$this->started) {
-            $this->start();
-        }
-
         try {
             $message = parent::send($message, $envelope);
         } catch (TransportExceptionInterface $e) {
-            $this->executeCommand("RSET\r\n", [250]);
+            if ($this->started) {
+                try {
+                    $this->executeCommand("RSET\r\n", [250]);
+                } catch (TransportExceptionInterface $_) {
+                    // ignore this exception as it probably means that the server error was final
+                }
+            }
 
             throw $e;
         }
@@ -122,6 +121,21 @@ class SmtpTransport extends AbstractTransport
         $this->checkRestartThreshold();
 
         return $message;
+    }
+
+    public function __toString(): string
+    {
+        if ($this->stream instanceof SocketStream) {
+            $name = sprintf('smtp%s://%s', ($tls = $this->stream->isTLS()) ? 's' : '', $this->stream->getHost());
+            $port = $this->stream->getPort();
+            if (!(25 === $port || ($tls && 465 === $port))) {
+                $name .= ':'.$port;
+            }
+
+            return $name;
+        }
+
+        return sprintf('smtp://sendmail');
     }
 
     /**
@@ -137,7 +151,6 @@ class SmtpTransport extends AbstractTransport
      */
     public function executeCommand(string $command, array $codes): string
     {
-        $this->getLogger()->debug(sprintf('Email transport "%s" sent command "%s"', __CLASS__, trim($command)));
         $this->stream->write($command);
         $response = $this->getFullResponse();
         $this->assertResponseCode($response, $codes);
@@ -147,18 +160,30 @@ class SmtpTransport extends AbstractTransport
 
     protected function doSend(SentMessage $message): void
     {
-        $envelope = $message->getEnvelope();
-        $this->doMailFromCommand($envelope->getSender()->toString());
-        foreach ($envelope->getRecipients() as $recipient) {
-            $this->doRcptToCommand($recipient->toString());
+        $this->ping();
+        if (!$this->started) {
+            $this->start();
         }
 
-        $this->executeCommand("DATA\r\n", [354]);
-        foreach (AbstractStream::replace("\r\n.", "\r\n..", $message->toIterable()) as $chunk) {
-            $this->stream->write($chunk);
+        try {
+            $envelope = $message->getEnvelope();
+            $this->doMailFromCommand($envelope->getSender()->getAddress());
+            foreach ($envelope->getRecipients() as $recipient) {
+                $this->doRcptToCommand($recipient->getAddress());
+            }
+
+            $this->executeCommand("DATA\r\n", [354]);
+            foreach (AbstractStream::replace("\r\n.", "\r\n..", $message->toIterable()) as $chunk) {
+                $this->stream->write($chunk, false);
+            }
+            $this->stream->flush();
+            $this->executeCommand("\r\n.\r\n", [250]);
+            $message->appendDebug($this->stream->getDebug());
+        } catch (TransportExceptionInterface $e) {
+            $e->appendDebug($this->stream->getDebug());
+
+            throw $e;
         }
-        $this->stream->flush();
-        $this->executeCommand("\r\n.\r\n", [250]);
     }
 
     protected function doHeloCommand(): void
@@ -166,12 +191,12 @@ class SmtpTransport extends AbstractTransport
         $this->executeCommand(sprintf("HELO %s\r\n", $this->domain), [250]);
     }
 
-    private function doMailFromCommand($address): void
+    private function doMailFromCommand(string $address): void
     {
         $this->executeCommand(sprintf("MAIL FROM:<%s>\r\n", $address), [250]);
     }
 
-    private function doRcptToCommand($address): void
+    private function doRcptToCommand(string $address): void
     {
         $this->executeCommand(sprintf("RCPT TO:<%s>\r\n", $address), [250, 251, 252]);
     }
@@ -238,8 +263,6 @@ class SmtpTransport extends AbstractTransport
 
         list($code) = sscanf($response, '%3d');
         $valid = \in_array($code, $codes);
-
-        $this->getLogger()->debug(sprintf('Email transport "%s" received response "%s" (%s).', __CLASS__, trim($response), $valid ? 'ok' : 'error'));
 
         if (!$valid) {
             throw new TransportException(sprintf('Expected response code "%s" but got code "%s", with message "%s".', implode('/', $codes), $code, trim($response)), $code);

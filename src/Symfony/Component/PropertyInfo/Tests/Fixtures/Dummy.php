@@ -94,6 +94,21 @@ class Dummy extends ParentDummy
     public $j;
 
     /**
+     * @var int[]|null
+     */
+    public $nullableCollectionOfNonNullableElements;
+
+    /**
+     * @var array
+     */
+    private $xTotals;
+
+    /**
+     * @var string
+     */
+    private $YT;
+
+    /**
      * This should not be removed.
      *
      * @var
@@ -179,6 +194,20 @@ class Dummy extends ParentDummy
      * @param parent $realParent
      */
     public function setRealParent(parent $realParent)
+    {
+    }
+
+    /**
+     * @return array
+     */
+    public function getXTotals()
+    {
+    }
+
+    /**
+     * @return string
+     */
+    public function getYT()
     {
     }
 }

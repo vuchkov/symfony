@@ -19,11 +19,11 @@ use Symfony\Component\Translation\Translator;
 class TranslatorTest extends TestCase
 {
     /**
-     * @dataProvider      getInvalidLocalesTests
-     * @expectedException \Symfony\Component\Translation\Exception\InvalidArgumentException
+     * @dataProvider getInvalidLocalesTests
      */
     public function testConstructorInvalidLocale($locale)
     {
+        $this->expectException('Symfony\Component\Translation\Exception\InvalidArgumentException');
         new Translator($locale);
     }
 
@@ -34,14 +34,7 @@ class TranslatorTest extends TestCase
     {
         $translator = new Translator($locale);
 
-        $this->assertEquals($locale, $translator->getLocale());
-    }
-
-    public function testConstructorWithoutLocale()
-    {
-        $translator = new Translator(null);
-
-        $this->assertNull($translator->getLocale());
+        $this->assertSame($locale, $translator->getLocale());
     }
 
     public function testSetGetLocale()
@@ -55,11 +48,11 @@ class TranslatorTest extends TestCase
     }
 
     /**
-     * @dataProvider      getInvalidLocalesTests
-     * @expectedException \Symfony\Component\Translation\Exception\InvalidArgumentException
+     * @dataProvider getInvalidLocalesTests
      */
     public function testSetInvalidLocale($locale)
     {
+        $this->expectException('Symfony\Component\Translation\Exception\InvalidArgumentException');
         $translator = new Translator('fr');
         $translator->setLocale($locale);
     }
@@ -138,11 +131,11 @@ class TranslatorTest extends TestCase
     }
 
     /**
-     * @dataProvider      getInvalidLocalesTests
-     * @expectedException \Symfony\Component\Translation\Exception\InvalidArgumentException
+     * @dataProvider getInvalidLocalesTests
      */
     public function testSetFallbackInvalidLocales($locale)
     {
+        $this->expectException('Symfony\Component\Translation\Exception\InvalidArgumentException');
         $translator = new Translator('fr');
         $translator->setFallbackLocales(['fr', $locale]);
     }
@@ -170,11 +163,11 @@ class TranslatorTest extends TestCase
     }
 
     /**
-     * @dataProvider      getInvalidLocalesTests
-     * @expectedException \Symfony\Component\Translation\Exception\InvalidArgumentException
+     * @dataProvider getInvalidLocalesTests
      */
     public function testAddResourceInvalidLocales($locale)
     {
+        $this->expectException('Symfony\Component\Translation\Exception\InvalidArgumentException');
         $translator = new Translator('fr');
         $translator->addResource('array', ['foo' => 'foofoo'], $locale);
     }
@@ -205,11 +198,11 @@ class TranslatorTest extends TestCase
     }
 
     /**
-     * @dataProvider      getTransFileTests
-     * @expectedException \Symfony\Component\Translation\Exception\NotFoundResourceException
+     * @dataProvider getTransFileTests
      */
     public function testTransWithoutFallbackLocaleFile($format, $loader)
     {
+        $this->expectException('Symfony\Component\Translation\Exception\NotFoundResourceException');
         $loaderClass = 'Symfony\\Component\\Translation\\Loader\\'.$loader;
         $translator = new Translator('en');
         $translator->addLoader($format, new $loaderClass());
@@ -300,11 +293,9 @@ class TranslatorTest extends TestCase
         $this->assertEquals('non-existent', $translator->trans('non-existent'));
     }
 
-    /**
-     * @expectedException \Symfony\Component\Translation\Exception\RuntimeException
-     */
     public function testWhenAResourceHasNoRegisteredLoader()
     {
+        $this->expectException('Symfony\Component\Translation\Exception\RuntimeException');
         $translator = new Translator('en');
         $translator->addResource('array', ['foo' => 'foofoo'], 'en');
 
@@ -354,11 +345,11 @@ class TranslatorTest extends TestCase
     }
 
     /**
-     * @dataProvider      getInvalidLocalesTests
-     * @expectedException \Symfony\Component\Translation\Exception\InvalidArgumentException
+     * @dataProvider getInvalidLocalesTests
      */
     public function testTransInvalidLocale($locale)
     {
+        $this->expectException('Symfony\Component\Translation\Exception\InvalidArgumentException');
         $translator = new Translator('en');
         $translator->addLoader('array', new ArrayLoader());
         $translator->addResource('array', ['foo' => 'foofoo'], 'en');
@@ -367,7 +358,7 @@ class TranslatorTest extends TestCase
     }
 
     /**
-     * @dataProvider      getValidLocalesTests
+     * @dataProvider getValidLocalesTests
      */
     public function testTransValidLocale($locale)
     {
@@ -391,6 +382,19 @@ class TranslatorTest extends TestCase
         $this->assertEquals($expected, $translator->trans($id, [], '', 'fr'));
     }
 
+    public function testTransNullId()
+    {
+        $translator = new Translator('en');
+        $translator->addLoader('array', new ArrayLoader());
+        $translator->addResource('array', ['foo' => 'foofoo'], 'en');
+
+        $this->assertSame('', $translator->trans(null));
+
+        (\Closure::bind(function () use ($translator) {
+            $this->assertSame([], $translator->catalogues);
+        }, $this, Translator::class))();
+    }
+
     public function getTransFileTests()
     {
         return [
@@ -412,6 +416,7 @@ class TranslatorTest extends TestCase
             ['Symfony est super !', 'Symfony is great!', 'Symfony est super !', [], 'fr', ''],
             ['Symfony est awesome !', 'Symfony is %what%!', 'Symfony est %what% !', ['%what%' => 'awesome'], 'fr', ''],
             ['Symfony est super !', new StringClass('Symfony is great!'), 'Symfony est super !', [], 'fr', ''],
+            ['', null, '', [], 'fr', ''],
         ];
     }
 
@@ -459,7 +464,6 @@ class TranslatorTest extends TestCase
     {
         return [
             [''],
-            [null],
             ['fr'],
             ['francais'],
             ['FR'],
@@ -497,7 +501,7 @@ class StringClass
         $this->str = $str;
     }
 
-    public function __toString()
+    public function __toString(): string
     {
         return $this->str;
     }

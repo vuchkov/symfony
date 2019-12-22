@@ -26,6 +26,8 @@ use Twig\Environment;
  * RouterController.
  *
  * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @internal
  */
 class RouterController
 {
@@ -45,13 +47,11 @@ class RouterController
     /**
      * Renders the profiler panel for the given token.
      *
-     * @param string $token The profiler token
-     *
      * @return Response A Response instance
      *
      * @throws NotFoundHttpException
      */
-    public function panelAction($token)
+    public function panelAction(string $token)
     {
         if (null === $this->profiler) {
             throw new NotFoundHttpException('The profiler must be enabled.');

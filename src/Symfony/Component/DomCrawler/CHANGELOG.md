@@ -11,11 +11,15 @@ CHANGELOG
 -----
 
 * Added `Form::getName()` method.
+* Added `Crawler::matches()` method.
+* Added `Crawler::closest()` method.
+* Added `Crawler::outerHtml()` method.
+* Added an argument to the `Crawler::text()` method to opt-in normalizing whitespaces.
 
 4.3.0
 -----
 
-* Added PHPUnit constraints: `CrawlerSelectorAttributeValueSame`, `CrawlerSelectorExists`, `CrawlerSelectorTextContains``
+* Added PHPUnit constraints: `CrawlerSelectorAttributeValueSame`, `CrawlerSelectorExists`, `CrawlerSelectorTextContains`
   and `CrawlerSelectorTextSame`
 * Added return of element name (`_name`) in `extract()` method.
 * Added ability to return a default value in `text()` and `html()` instead of throwing an exception when node is empty.
@@ -27,7 +31,7 @@ CHANGELOG
 
 * The `$currentUri` constructor argument of the `AbstractUriElement`, `Link` and
   `Image` classes is now optional.
-* The `Crawler::children()` method will have a new `$selector` argument in version 5.0, 
+* The `Crawler::children()` method will have a new `$selector` argument in version 5.0,
   not defining it is deprecated.
 
 3.1.0

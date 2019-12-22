@@ -1,10 +1,21 @@
 CHANGELOG
 =========
 
+5.1.0
+-----
+
+ * Added context to `TransitionException` and its child classes whenever they are thrown in `Workflow::apply()`
+ * Added `Registry::has()` to check if a workflow exists
+
 5.0.0
 -----
 
- * added argument `$context` to `MarkingStoreInterface::setMarking()`
+ * Added argument `$context` to `MarkingStoreInterface::setMarking()`
+
+4.4.0
+-----
+
+ * Marked all dispatched event classes as `@final`
 
 4.3.0
 -----
@@ -33,6 +44,7 @@ CHANGELOG
  * Dispatch `CompletedEvent` on `workflow.completed`
  * Dispatch `AnnounceEvent` on `workflow.announce`
  * Added support for many `initialPlaces`
+ * Deprecated `DefinitionBuilder::setInitialPlace()` method, use `DefinitionBuilder::setInitialPlaces()` instead.
  * Deprecated the `MultipleStateMarkingStore` class, use the `MethodMarkingStore` instead.
  * Deprecated the `SingleStateMarkingStore` class, use the `MethodMarkingStore` instead.
 
